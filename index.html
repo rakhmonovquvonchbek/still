@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#101612" />
+    <meta name="description" content="Still — a calm pomodoro with ambient sound, living art, and session memory." />
+    <title>Still — Pomodoro</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Sora:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <canvas id="art" class="art" aria-hidden="true"></canvas>
+    <div class="veil" aria-hidden="true"></div>
+    <div class="grain" aria-hidden="true"></div>
+
+    <main class="stage">
+      <header class="brand">
+        <p class="brand-name">Still</p>
+        <p class="brand-line">Focus in quiet cycles.</p>
+      </header>
+
+      <section class="timer-block" aria-live="polite">
+        <div class="modes" role="tablist" aria-label="Session type">
+          <button class="mode is-active" data-mode="focus" role="tab" aria-selected="true">Focus</button>
+          <button class="mode" data-mode="short" role="tab" aria-selected="false">Short</button>
+          <button class="mode" data-mode="long" role="tab" aria-selected="false">Long</button>
+        </div>
+
+        <div class="ring-wrap">
+          <svg class="ring" viewBox="0 0 120 120" aria-hidden="true">
+            <circle class="ring-track" cx="60" cy="60" r="54" />
+            <circle class="ring-progress" cx="60" cy="60" r="54" />
+          </svg>
+          <div class="time-face">
+            <p id="time" class="time">25:00</p>
+            <p id="status" class="status">Ready when you are</p>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button id="resetBtn" class="ghost" type="button">Reset</button>
+          <button id="toggleBtn" class="primary" type="button">Start</button>
+          <button id="skipBtn" class="ghost" type="button">Skip</button>
+        </div>
+      </section>
+
+      <section class="ambient" aria-label="Ambient sound">
+        <div class="ambient-head">
+          <button id="noiseToggle" class="noise-toggle" type="button" aria-pressed="false">
+            Sound off
+          </button>
+          <input
+            id="noiseVolume"
+            class="volume"
+            type="range"
+            min="0"
+            max="100"
+            value="35"
+            aria-label="Ambient volume"
+          />
+        </div>
+        <div id="noisePlaylist" class="playlist" role="listbox" aria-label="White noise playlist"></div>
+      </section>
+
+      <section class="stats" aria-label="Progress">
+        <div>
+          <p class="stat-value" id="todayCount">0</p>
+          <p class="stat-label">Today</p>
+        </div>
+        <div>
+          <p class="stat-value" id="streakCount">0</p>
+          <p class="stat-label">Streak</p>
+        </div>
+        <div>
+          <p class="stat-value" id="totalCount">0</p>
+          <p class="stat-label">All time</p>
+        </div>
+      </section>
+
+      <section class="memory">
+        <div class="memory-head">
+          <h2>Memory</h2>
+          <p id="memoryHint">Notes stay on this device.</p>
+        </div>
+        <form id="noteForm" class="note-form">
+          <input
+            id="noteInput"
+            type="text"
+            maxlength="140"
+            placeholder="What are you holding in mind?"
+            autocomplete="off"
+          />
+          <button type="submit">Save</button>
+        </form>
+        <ul id="memoryList" class="memory-list"></ul>
+      </section>
+
+      <section class="panel">
+        <button id="settingsToggle" class="panel-toggle" type="button" aria-expanded="false">
+          Settings
+        </button>
+        <div id="settingsPanel" class="settings" hidden>
+          <label>
+            Focus
+            <input id="focusMins" type="number" min="1" max="90" />
+            <span>min</span>
+          </label>
+          <label>
+            Short break
+            <input id="shortMins" type="number" min="1" max="30" />
+            <span>min</span>
+          </label>
+          <label>
+            Long break
+            <input id="longMins" type="number" min="1" max="60" />
+            <span>min</span>
+          </label>
+          <label>
+            Long break every
+            <input id="longEvery" type="number" min="2" max="12" />
+            <span>focus</span>
+          </label>
+          <label class="check">
+            <input id="autoStart" type="checkbox" />
+            Auto-start next session
+          </label>
+          <label class="check">
+            <input id="soundOn" type="checkbox" />
+            Chime when session ends
+          </label>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="reflectDialog" class="reflect">
+      <form method="dialog" id="reflectForm">
+        <h2>Focus complete</h2>
+        <p>Leave a short memory for this session, or skip.</p>
+        <input id="reflectInput" type="text" maxlength="140" placeholder="What clicked?" />
+        <div class="reflect-actions">
+          <button value="skip" class="ghost" type="submit">Skip</button>
+          <button value="save" class="primary" type="submit">Keep</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="art.js"></script>
+    <script src="audio.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
