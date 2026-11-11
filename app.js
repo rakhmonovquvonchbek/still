@@ -12,6 +12,7 @@
       autoStart: true,
       soundOn: true,
       layout: null,
+      pane: "tasks",
     },
     ambient: {
       trackId: "rain",
@@ -48,7 +49,6 @@
     todayCount: document.getElementById("todayCount"),
     streakCount: document.getElementById("streakCount"),
     totalCount: document.getElementById("totalCount"),
-    settingsToggle: document.getElementById("settingsToggle"),
     settingsPanel: document.getElementById("settingsPanel"),
     focusMins: document.getElementById("focusMins"),
     shortMins: document.getElementById("shortMins"),
@@ -375,6 +375,23 @@
     });
   }
 
+  function applyPane(pane = state.settings.pane || "tasks") {
+    const allowed = ["tasks", "calendar", "memory", "settings"];
+    const next = allowed.includes(pane) ? pane : "tasks";
+    state.settings.pane = next;
+    document.querySelectorAll(".dock-tab").forEach((btn) => {
+      const on = btn.getAttribute("data-pane") === next;
+      btn.classList.toggle("is-active", on);
+      btn.setAttribute("aria-selected", on ? "true" : "false");
+    });
+    document.querySelectorAll(".pane").forEach((panel) => {
+      const on = panel.getAttribute("data-pane") === next;
+      panel.classList.toggle("is-active", on);
+      if (on) panel.removeAttribute("hidden");
+      else panel.setAttribute("hidden", "");
+    });
+  }
+
   function syncSettingsForm() {
     els.focusMins.value = state.settings.focus;
     els.shortMins.value = state.settings.short;
@@ -383,6 +400,7 @@
     els.autoStart.checked = state.settings.autoStart;
     els.soundOn.checked = state.settings.soundOn;
     applyLayout();
+    applyPane();
   }
 
   function readSettingsFromForm() {
@@ -730,13 +748,6 @@
     });
   });
 
-  els.settingsToggle.addEventListener("click", () => {
-    const open = els.settingsPanel.hasAttribute("hidden");
-    if (open) els.settingsPanel.removeAttribute("hidden");
-    else els.settingsPanel.setAttribute("hidden", "");
-    els.settingsToggle.setAttribute("aria-expanded", open ? "true" : "false");
-  });
-
   [
     els.focusMins,
     els.shortMins,
@@ -858,9 +869,9 @@
       return;
     }
     if (isIos && !isStandalone) {
+      applyPane("settings");
       els.dataStatus.textContent = "In Safari: Share → Add to Home Screen";
-      els.settingsPanel.removeAttribute("hidden");
-      els.settingsToggle.setAttribute("aria-expanded", "true");
+      saveState();
     }
   });
 
@@ -878,17 +889,25 @@
   window.addEventListener("beforeunload", saveState);
 
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./sw.js?v=6").then((reg) => {
+    navigator.serviceWorker.register("./sw.js?v=7").then((reg) => {
       reg.update().catch(() => {});
     }).catch(() => {});
   }
 
   document.addEventListener("click", (event) => {
-    const btn = event.target.closest(".layout-btn");
-    if (!btn) return;
-    event.preventDefault();
-    applyLayout(btn.getAttribute("data-layout"));
-    saveState();
+    const layoutBtn = event.target.closest(".layout-btn");
+    if (layoutBtn) {
+      event.preventDefault();
+      applyLayout(layoutBtn.getAttribute("data-layout"));
+      saveState();
+      return;
+    }
+    const paneBtn = event.target.closest(".dock-tab");
+    if (paneBtn) {
+      event.preventDefault();
+      applyPane(paneBtn.getAttribute("data-pane"));
+      saveState();
+    }
   });
 
   buildPlaylist();
