@@ -1,32 +1,6 @@
-const CACHE = "still-v15";
+const CACHE = "still-v16";
 const CORE = [
-  "./",
-  "./index.html",
-  "./styles.css",
-  "./styles.css?v=15",
-  "./app.js",
-  "./app.js?v=15",
-  "./art.js",
-  "./art.js?v=15",
-  "./audio.js",
-  "./audio.js?v=15",
-  "./auth.js",
-  "./auth.js?v=15",
-  "./manifest.webmanifest",
-  "./icons/icon-192.png",
-  "./icons/icon-512.png",
-  "./icons/apple-touch-icon.png",
-  "./media/scene-00.jpg",
-  "./media/scene-01.jpg",
-  "./media/scene-02.jpg",
-  "./media/scene-03.jpg",
-  "./media/scene-04.jpg",
-  "./media/scene-05.jpg",
-  "./media/scene-06.jpg",
-  "./media/scene-07.jpg",
-  "./media/scene-08.jpg",
-  "./media/scene-09.jpg",
-  "./media/scene-10.jpg",
+  "./",\n  "./index.html",\n  "./styles.css",\n  "./styles.css?v=16",\n  "./app.js",\n  "./app.js?v=16",\n  "./art.js",\n  "./art.js?v=16",\n  "./audio.js",\n  "./audio.js?v=16",\n  "./auth.js",\n  "./auth.js?v=16",\n  "./manifest.webmanifest",\n  "./icons/icon-192.png",\n  "./icons/icon-512.png",\n  "./icons/apple-touch-icon.png",\n  "./media/scene-00.jpg",\n  "./media/scene-01.jpg",\n  "./media/scene-02.jpg",\n  "./media/scene-03.jpg",\n  "./media/scene-04.jpg",\n  "./media/scene-05.jpg",\n  "./media/scene-06.jpg",\n  "./media/scene-07.jpg",\n  "./media/scene-08.jpg",\n  "./media/scene-09.jpg",\n  "./media/scene-10.jpg",\n  "./media/scene-11.jpg",\n  "./media/scene-12.jpg",\n  "./media/scene-13.jpg",\n  "./media/scene-14.jpg",\n  "./media/scene-15.jpg",\n  "./media/scene-16.jpg",\n  "./media/scene-17.jpg",\n  "./media/scene-18.jpg",\n  "./media/scene-19.jpg",\n  "./media/scene-20.jpg",\n  "./media/scene-21.jpg",\n  "./media/scene-22.jpg",\n  "./media/scene-23.jpg",\n  "./media/scene-24.jpg",\n  "./media/scene-25.jpg",\n  "./media/scene-26.jpg",\n  "./media/scene-27.jpg",\n  "./media/scene-28.jpg",\n  "./media/scene-29.jpg",\n  "./media/scene-30.jpg",
 ];
 
 self.addEventListener("install", (event) => {

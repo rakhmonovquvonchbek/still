@@ -14,9 +14,29 @@
     "media/scene-08.jpg",
     "media/scene-09.jpg",
     "media/scene-10.jpg",
+    "media/scene-11.jpg",
+    "media/scene-12.jpg",
+    "media/scene-13.jpg",
+    "media/scene-14.jpg",
+    "media/scene-15.jpg",
+    "media/scene-16.jpg",
+    "media/scene-17.jpg",
+    "media/scene-18.jpg",
+    "media/scene-19.jpg",
+    "media/scene-20.jpg",
+    "media/scene-21.jpg",
+    "media/scene-22.jpg",
+    "media/scene-23.jpg",
+    "media/scene-24.jpg",
+    "media/scene-25.jpg",
+    "media/scene-26.jpg",
+    "media/scene-27.jpg",
+    "media/scene-28.jpg",
+    "media/scene-29.jpg",
+    "media/scene-30.jpg",
   ];
 
-  const INTERVAL_MS = 52000;
+  const INTERVAL_MS = 45000;
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   const a = document.createElement("img");

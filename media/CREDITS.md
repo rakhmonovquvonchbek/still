@@ -1,4 +1,3 @@
-Calm nature photos for Still backgrounds.
-
-- scene-00 — Still original forest night
-- scene-01–10 — Unsplash (https://unsplash.com): forests, lakes, mountains, meadows
+Still backdrop library — calm nature + wholesome life moments.
+Sources: original Still night forest + Unsplash photos (https://unsplash.com).
+Themes: forests, lakes, mountains, cats, coffee, smiles, birds, planes, wildlife, friends.
