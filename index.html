@@ -18,12 +18,11 @@
       href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Sora:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=8" />
+    <link rel="stylesheet" href="styles.css?v=9" />
   </head>
   <body class="layout-mobile">
     <canvas id="art" class="art" aria-hidden="true"></canvas>
     <div class="veil" aria-hidden="true"></div>
-    <div class="grain" aria-hidden="true"></div>
 
     <main class="stage">
       <header class="brand">
@@ -38,32 +37,29 @@
       </header>
 
       <section class="timer-block" aria-live="polite">
-        <div class="timer-top">
-          <div class="modes" role="tablist" aria-label="Session type">
-            <button class="mode is-active" data-mode="focus" role="tab" aria-selected="true">Focus</button>
-            <button class="mode" data-mode="short" role="tab" aria-selected="false">Short</button>
-            <button class="mode" data-mode="long" role="tab" aria-selected="false">Long</button>
-          </div>
-          <p id="activeTaskLabel" class="active-task">No task</p>
+        <div class="modes" role="tablist" aria-label="Session type">
+          <button class="mode is-active" data-mode="focus" role="tab" aria-selected="true">Focus</button>
+          <button class="mode" data-mode="short" role="tab" aria-selected="false">Short</button>
+          <button class="mode" data-mode="long" role="tab" aria-selected="false">Long</button>
         </div>
 
-        <div class="timer-core">
-          <div class="ring-wrap">
-            <svg class="ring" viewBox="0 0 120 120" aria-hidden="true">
-              <circle class="ring-track" cx="60" cy="60" r="54" />
-              <circle class="ring-progress" cx="60" cy="60" r="54" />
-            </svg>
-            <div class="time-face">
-              <p id="time" class="time">25:00</p>
-              <p id="status" class="status">Ready</p>
-            </div>
-          </div>
+        <p id="activeTaskLabel" class="active-task">No task selected</p>
 
-          <div class="controls">
-            <button id="resetBtn" class="ghost" type="button">Reset</button>
-            <button id="toggleBtn" class="primary" type="button">Start</button>
-            <button id="skipBtn" class="ghost" type="button">Skip</button>
+        <div class="ring-wrap">
+          <svg class="ring" viewBox="0 0 120 120" aria-hidden="true">
+            <circle class="ring-track" cx="60" cy="60" r="54" />
+            <circle class="ring-progress" cx="60" cy="60" r="54" />
+          </svg>
+          <div class="time-face">
+            <p id="time" class="time">25:00</p>
+            <p id="status" class="status">Ready when you are</p>
           </div>
+        </div>
+
+        <div class="controls">
+          <button id="resetBtn" class="ghost" type="button">Reset</button>
+          <button id="toggleBtn" class="primary" type="button">Start</button>
+          <button id="skipBtn" class="ghost" type="button">Skip</button>
         </div>
 
         <div class="under-timer">
@@ -183,8 +179,8 @@
       </form>
     </dialog>
 
-    <script src="art.js?v=8"></script>
-    <script src="audio.js?v=8"></script>
-    <script src="app.js?v=8"></script>
+    <script src="art.js?v=9"></script>
+    <script src="audio.js?v=9"></script>
+    <script src="app.js?v=9"></script>
   </body>
 </html>
