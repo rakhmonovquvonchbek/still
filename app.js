@@ -94,6 +94,8 @@
     accountSignOut: document.getElementById("accountSignOut"),
     accountStatus: document.getElementById("accountStatus"),
     accountTitle: document.getElementById("accountTitle"),
+    accountHint: document.getElementById("accountHint"),
+    accountSubmit: document.getElementById("accountSubmit"),
   };
 
   let state = null;
@@ -170,17 +172,29 @@
   function renderAccount() {
     const current = auth.active();
     if (current) {
+      els.accountBtn.classList.remove("is-guest");
       els.accountLabel.textContent = current.name;
       els.accountAvatar.textContent = current.name.slice(0, 1).toUpperCase();
       els.accountAvatar.style.background = current.color || "rgba(127, 159, 134, 0.28)";
       els.accountTitle.textContent = `Hey, ${current.name}`;
       els.accountSignOut.hidden = false;
+      if (els.accountHint) {
+        els.accountHint.textContent = "Switch people below, or add another name.";
+      }
+      if (els.accountSubmit) els.accountSubmit.textContent = "Add another person";
+      if (els.accountClose) els.accountClose.textContent = "Done";
     } else {
-      els.accountLabel.textContent = "Sign in";
-      els.accountAvatar.textContent = "?";
-      els.accountAvatar.style.background = "rgba(127, 159, 134, 0.28)";
-      els.accountTitle.textContent = "Your account";
+      els.accountBtn.classList.add("is-guest");
+      els.accountLabel.textContent = "Get started";
+      els.accountAvatar.textContent = "+";
+      els.accountAvatar.style.background = "";
+      els.accountTitle.textContent = "What's your name?";
       els.accountSignOut.hidden = true;
+      if (els.accountHint) {
+        els.accountHint.textContent = "This keeps your focus streak and notes under your name.";
+      }
+      if (els.accountSubmit) els.accountSubmit.textContent = "Start focusing";
+      if (els.accountClose) els.accountClose.textContent = "Skip";
     }
 
     const accounts = auth.list();
@@ -200,12 +214,14 @@
       li.querySelector(".account-avatar").textContent = account.name.slice(0, 1).toUpperCase();
       li.querySelector("strong").textContent = account.name;
       li.querySelector("span").textContent =
-        account.id === auth.meta.activeId ? "Active now" : "Tap to switch";
+        account.id === auth.meta.activeId ? "You're here" : "Switch to this person";
       li.querySelector(".who").addEventListener("click", () => {
         reloadAsAccount(() => auth.switchTo(account.id));
+        closeAccountDialog();
       });
-      li.querySelector("[data-remove]").addEventListener("click", () => {
-        if (!confirm(`Remove ${account.name}'s account from this device?`)) return;
+      li.querySelector("[data-remove]").addEventListener("click", (event) => {
+        event.stopPropagation();
+        if (!confirm(`Remove ${account.name} from this device?`)) return;
         reloadAsAccount(() => auth.remove(account.id));
       });
       els.accountList.appendChild(li);
@@ -971,7 +987,7 @@
   window.addEventListener("beforeunload", saveState);
 
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./sw.js?v=11").then((reg) => {
+    navigator.serviceWorker.register("./sw.js?v=12").then((reg) => {
       reg.update().catch(() => {});
     }).catch(() => {});
   }
@@ -997,15 +1013,18 @@
         else auth.create(name);
       });
       els.accountNameInput.value = "";
-      els.accountStatus.textContent = `Welcome, ${auth.active().name}`;
+      closeAccountDialog();
     } catch (err) {
-      els.accountStatus.textContent = err.message || "Could not create account";
+      if (els.accountStatus) {
+        els.accountStatus.hidden = false;
+        els.accountStatus.textContent = err.message || "Could not create account";
+      }
     }
   });
 
   els.accountSignOut.addEventListener("click", () => {
     reloadAsAccount(() => auth.signOut());
-    els.accountStatus.textContent = "Guest mode — data stays on this browser only";
+    closeAccountDialog();
   });
 
   els.accountSyncExport.addEventListener("click", async () => {
@@ -1056,6 +1075,5 @@
 
   if (auth.ensureWelcomeNeeded()) {
     openAccountDialog();
-    els.accountStatus.textContent = "Create your account to keep focus data separate.";
   }
 })();
