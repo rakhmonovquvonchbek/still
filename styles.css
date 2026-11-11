@@ -936,29 +936,17 @@ body.layout-laptop .cal-cell {
   border-radius: 12px;
 }
 
-@media (max-width: 900px) {
-  /* If someone forces laptop on a narrow screen, keep it usable */
+/* Keep laptop layout visibly 2-column even on smaller screens.
+   Scroll horizontally instead of silently falling back to mobile. */
+@media (max-width: 980px) {
+  body.layout-laptop {
+    overflow-x: auto;
+  }
+
   body.layout-laptop .stage {
-    width: min(460px, calc(100% - 1.75rem));
-    display: flex;
-    flex-direction: column;
-  }
-
-  body.layout-laptop .brand {
-    display: grid;
-    justify-items: center;
-    text-align: center;
-  }
-
-  body.layout-laptop .brand-copy {
-    justify-items: center;
-  }
-
-  body.layout-laptop .timer-block,
-  body.layout-laptop .tasks,
-  body.layout-laptop .calendar,
-  body.layout-laptop .memory,
-  body.layout-laptop .stats {
-    width: 100%;
+    width: 980px;
+    min-width: 980px;
+    padding-left: 1rem;
+    padding-right: 1rem;
   }
 }

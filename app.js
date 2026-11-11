@@ -80,7 +80,6 @@
     importFile: document.getElementById("importFile"),
     dataStatus: document.getElementById("dataStatus"),
     installBtn: document.getElementById("installBtn"),
-    layoutBtns: [...document.querySelectorAll(".layout-btn")],
   };
 
   let state = loadState();
@@ -367,10 +366,12 @@
   function applyLayout(layout = state.settings.layout || "mobile") {
     const mode = layout === "laptop" ? "laptop" : "mobile";
     state.settings.layout = mode;
-    document.body.classList.toggle("layout-laptop", mode === "laptop");
-    document.body.classList.toggle("layout-mobile", mode === "mobile");
-    els.layoutBtns.forEach((btn) => {
-      btn.classList.toggle("is-active", btn.dataset.layout === mode);
+    document.body.classList.remove("layout-laptop", "layout-mobile");
+    document.body.classList.add(mode === "laptop" ? "layout-laptop" : "layout-mobile");
+    document.querySelectorAll(".layout-btn").forEach((btn) => {
+      const on = btn.getAttribute("data-layout") === mode;
+      btn.classList.toggle("is-active", on);
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
     });
   }
 
@@ -877,14 +878,17 @@
   window.addEventListener("beforeunload", saveState);
 
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./sw.js").catch(() => {});
+    navigator.serviceWorker.register("./sw.js?v=5").then((reg) => {
+      reg.update().catch(() => {});
+    }).catch(() => {});
   }
 
-  els.layoutBtns.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      applyLayout(btn.dataset.layout);
-      saveState();
-    });
+  document.addEventListener("click", (event) => {
+    const btn = event.target.closest(".layout-btn");
+    if (!btn) return;
+    event.preventDefault();
+    applyLayout(btn.getAttribute("data-layout"));
+    saveState();
   });
 
   buildPlaylist();
