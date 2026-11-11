@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#0b1014" />
+    <meta name="theme-color" content="#101612" />
     <meta name="description" content="Still — a calm pomodoro with ambient sound, tasks, memory, and a focus calendar." />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -18,17 +18,19 @@
       href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Sora:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=9" />
+    <link rel="stylesheet" href="styles.css?v=10" />
   </head>
-  <body class="layout-mobile">
+  <body>
     <canvas id="art" class="art" aria-hidden="true"></canvas>
     <div class="veil" aria-hidden="true"></div>
+    <div class="grain" aria-hidden="true"></div>
 
     <main class="stage">
       <header class="brand">
         <div class="brand-copy">
           <p class="brand-name">Still</p>
-          <button id="installBtn" class="install-btn" type="button" hidden>Install</button>
+          <p class="brand-line">Focus in quiet cycles.</p>
+          <button id="installBtn" class="install-btn" type="button" hidden>Install app</button>
         </div>
         <div class="layout-switch" role="group" aria-label="Layout">
           <button type="button" class="layout-btn is-active" data-layout="mobile" aria-pressed="true">Mobile</button>
@@ -61,116 +63,135 @@
           <button id="toggleBtn" class="primary" type="button">Start</button>
           <button id="skipBtn" class="ghost" type="button">Skip</button>
         </div>
+      </section>
 
-        <div class="under-timer">
-          <section class="stats" aria-label="Progress">
-            <div>
-              <p class="stat-value" id="todayCount">0</p>
-              <p class="stat-label">Today</p>
-            </div>
-            <div>
-              <p class="stat-value" id="streakCount">0</p>
-              <p class="stat-label">Streak</p>
-            </div>
-            <div>
-              <p class="stat-value" id="totalCount">0</p>
-              <p class="stat-label">Total</p>
-            </div>
-          </section>
+      <section class="ambient" aria-label="Ambient sound">
+        <div class="ambient-head">
+          <button id="noiseToggle" class="noise-toggle" type="button" aria-pressed="false">
+            Sound off
+          </button>
+          <input
+            id="noiseVolume"
+            class="volume"
+            type="range"
+            min="0"
+            max="100"
+            value="55"
+            aria-label="Ambient volume"
+          />
+        </div>
+        <div id="noisePlaylist" class="playlist" role="listbox" aria-label="Ambient playlist"></div>
+      </section>
 
-          <section class="ambient" aria-label="Ambient sound">
-            <div class="ambient-head">
-              <button id="noiseToggle" class="noise-toggle" type="button" aria-pressed="false">Off</button>
-              <input id="noiseVolume" class="volume" type="range" min="0" max="100" value="55" aria-label="Ambient volume" />
-            </div>
-            <div id="noisePlaylist" class="playlist" role="listbox" aria-label="Ambient playlist"></div>
-          </section>
+      <section class="tasks" aria-label="Task queue">
+        <div class="section-head">
+          <h2>Queue</h2>
+          <p>Pick one focus target</p>
+        </div>
+        <form id="taskForm" class="note-form">
+          <input id="taskInput" type="text" maxlength="80" placeholder="What deserves this block?" autocomplete="off" />
+          <button type="submit">Add</button>
+        </form>
+        <ul id="taskList" class="task-list"></ul>
+      </section>
+
+      <section class="stats" aria-label="Progress">
+        <div>
+          <p class="stat-value" id="todayCount">0</p>
+          <p class="stat-label">Today</p>
+        </div>
+        <div>
+          <p class="stat-value" id="streakCount">0</p>
+          <p class="stat-label">Streak</p>
+        </div>
+        <div>
+          <p class="stat-value" id="totalCount">0</p>
+          <p class="stat-label">All time</p>
         </div>
       </section>
 
-      <nav class="dock-tabs" role="tablist" aria-label="Panels">
-        <button type="button" class="dock-tab is-active" data-pane="tasks" role="tab" aria-selected="true">Queue</button>
-        <button type="button" class="dock-tab" data-pane="calendar" role="tab" aria-selected="false">Cal</button>
-        <button type="button" class="dock-tab" data-pane="memory" role="tab" aria-selected="false">Memory</button>
-        <button type="button" class="dock-tab" data-pane="settings" role="tab" aria-selected="false">More</button>
-      </nav>
-
-      <div class="dock">
-        <section class="pane tasks is-active" data-pane="tasks" aria-label="Task queue">
-          <form id="taskForm" class="note-form">
-            <input id="taskInput" type="text" maxlength="80" placeholder="Focus target" autocomplete="off" />
-            <button type="submit">Add</button>
-          </form>
-          <ul id="taskList" class="task-list"></ul>
-        </section>
-
-        <section class="pane calendar" data-pane="calendar" aria-label="Focus calendar" hidden>
-          <div class="calendar-head">
-            <div class="cal-nav">
-              <button id="calPrev" class="ghost tiny" type="button" aria-label="Previous month">‹</button>
-              <p id="calLabel" class="cal-label">Month</p>
-              <button id="calNext" class="ghost tiny" type="button" aria-label="Next month">›</button>
-            </div>
+      <section class="calendar" aria-label="Focus calendar">
+        <div class="section-head calendar-head">
+          <h2>Calendar</h2>
+          <div class="cal-nav">
+            <button id="calPrev" class="ghost tiny" type="button" aria-label="Previous month">‹</button>
+            <p id="calLabel" class="cal-label">Month</p>
+            <button id="calNext" class="ghost tiny" type="button" aria-label="Next month">›</button>
           </div>
-          <div class="cal-weekdays" aria-hidden="true">
-            <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
-          </div>
-          <div id="calGrid" class="cal-grid"></div>
-        </section>
+        </div>
+        <div class="cal-weekdays" aria-hidden="true">
+          <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
+        </div>
+        <div id="calGrid" class="cal-grid"></div>
+        <p id="calLegend" class="cal-legend">Focus days light up by depth</p>
+      </section>
 
-        <section class="pane memory" data-pane="memory" aria-label="Memory" hidden>
-          <form id="noteForm" class="note-form">
-            <input id="noteInput" type="text" maxlength="140" placeholder="Note" autocomplete="off" />
-            <button type="submit">Save</button>
-          </form>
-          <ul id="memoryList" class="memory-list"></ul>
-        </section>
+      <section class="memory">
+        <div class="section-head">
+          <h2>Memory</h2>
+          <p>Notes stay on this device</p>
+        </div>
+        <form id="noteForm" class="note-form">
+          <input
+            id="noteInput"
+            type="text"
+            maxlength="140"
+            placeholder="What are you holding in mind?"
+            autocomplete="off"
+          />
+          <button type="submit">Save</button>
+        </form>
+        <ul id="memoryList" class="memory-list"></ul>
+      </section>
 
-        <section class="pane settings-pane" data-pane="settings" aria-label="Settings" hidden>
-          <div id="settingsPanel" class="settings">
-            <label>
-              Focus
-              <input id="focusMins" type="number" min="1" max="90" />
-              <span>min</span>
-            </label>
-            <label>
-              Short
-              <input id="shortMins" type="number" min="1" max="30" />
-              <span>min</span>
-            </label>
-            <label>
-              Long
-              <input id="longMins" type="number" min="1" max="60" />
-              <span>min</span>
-            </label>
-            <label>
-              Long every
-              <input id="longEvery" type="number" min="2" max="12" />
-              <span>x</span>
-            </label>
-            <label class="check">
-              <input id="autoStart" type="checkbox" />
-              Auto-start next
-            </label>
-            <label class="check">
-              <input id="soundOn" type="checkbox" />
-              End chime
-            </label>
-            <div class="data-row">
-              <button id="exportBtn" class="ghost wide" type="button">Export</button>
-              <button id="importBtn" class="ghost wide" type="button">Import</button>
-              <input id="importFile" type="file" accept="application/json,.json" hidden />
-            </div>
-            <p id="dataStatus" class="data-status"></p>
+      <section class="panel">
+        <button id="settingsToggle" class="panel-toggle" type="button" aria-expanded="false">
+          Settings
+        </button>
+        <div id="settingsPanel" class="settings" hidden>
+          <label>
+            Focus
+            <input id="focusMins" type="number" min="1" max="90" />
+            <span>min</span>
+          </label>
+          <label>
+            Short break
+            <input id="shortMins" type="number" min="1" max="30" />
+            <span>min</span>
+          </label>
+          <label>
+            Long break
+            <input id="longMins" type="number" min="1" max="60" />
+            <span>min</span>
+          </label>
+          <label>
+            Long break every
+            <input id="longEvery" type="number" min="2" max="12" />
+            <span>focus</span>
+          </label>
+          <label class="check">
+            <input id="autoStart" type="checkbox" />
+            Auto-start next session
+          </label>
+          <label class="check">
+            <input id="soundOn" type="checkbox" />
+            Chime when session ends
+          </label>
+
+          <div class="data-row">
+            <button id="exportBtn" class="ghost wide" type="button">Export data</button>
+            <button id="importBtn" class="ghost wide" type="button">Import data</button>
+            <input id="importFile" type="file" accept="application/json,.json" hidden />
           </div>
-        </section>
-      </div>
+          <p id="dataStatus" class="data-status"></p>
+        </div>
+      </section>
     </main>
 
     <dialog id="reflectDialog" class="reflect">
       <form method="dialog" id="reflectForm">
         <h2>Focus complete</h2>
-        <p>Leave a short memory, or skip.</p>
+        <p>Leave a short memory for this session, or skip.</p>
         <input id="reflectInput" type="text" maxlength="140" placeholder="What clicked?" />
         <div class="reflect-actions">
           <button value="skip" class="ghost" type="submit">Skip</button>
@@ -179,8 +200,8 @@
       </form>
     </dialog>
 
-    <script src="art.js?v=9"></script>
-    <script src="audio.js?v=9"></script>
-    <script src="app.js?v=9"></script>
+    <script src="art.js?v=10"></script>
+    <script src="audio.js?v=10"></script>
+    <script src="app.js?v=10"></script>
   </body>
 </html>

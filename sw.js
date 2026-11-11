@@ -1,15 +1,15 @@
-const CACHE = "still-v9";
+const CACHE = "still-v10";
 const CORE = [
   "./",
   "./index.html",
   "./styles.css",
-  "./styles.css?v=9",
+  "./styles.css?v=10",
   "./app.js",
-  "./app.js?v=9",
+  "./app.js?v=10",
   "./art.js",
-  "./art.js?v=9",
+  "./art.js?v=10",
   "./audio.js",
-  "./audio.js?v=9",
+  "./audio.js?v=10",
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
