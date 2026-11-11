@@ -878,7 +878,7 @@
   window.addEventListener("beforeunload", saveState);
 
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./sw.js?v=5").then((reg) => {
+    navigator.serviceWorker.register("./sw.js?v=6").then((reg) => {
       reg.update().catch(() => {});
     }).catch(() => {});
   }
