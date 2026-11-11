@@ -1,23 +1,25 @@
 # Still
 
-A calm pomodoro timer with living artwork, a white-noise playlist, and session memory.
-
-## Features
-
-- Focus / short / long cycles with pause, reset, skip
-- Ambient playlist: white, pink, brown, rain, wind, tide
-- Animated canvas background
-- Memory notes + auto-saved focus reflections
-- Settings, streak, and timer state saved in the browser
+A calm pomodoro timer with ambient sound, a task queue, focus calendar, and local memory.
 
 ## Live
 
 https://rakhmonovquvonchbek.github.io/still/
 
-## Local
+## Features
 
-Open `index.html`, or:
+- Installable PWA (Add to Home Screen / Install app)
+- Focus / short / long cycles
+- Ambient playlist with richer stereo loops + crossfade
+- Task queue tied to the current focus block
+- Monthly focus calendar
+- Memory notes + session reflections
+- Export / import JSON backup (on-device only)
+
+## Local
 
 ```bash
 python3 -m http.server 5173
 ```
+
+Then open http://localhost:5173

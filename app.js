@@ -1,5 +1,5 @@
 (() => {
-  const STORAGE_KEY = "still-pomodoro-v2";
+  const STORAGE_KEY = "still-pomodoro-v3";
   const CIRCUMFERENCE = 2 * Math.PI * 54;
   const { TRACKS, player } = window.StillAudio;
 
@@ -24,6 +24,9 @@
       lastActiveDate: null,
       focusSinceLong: 0,
     },
+    history: {},
+    tasks: [],
+    activeTaskId: null,
     memory: [],
     session: {
       mode: "focus",
@@ -63,35 +66,82 @@
     reflectDialog: document.getElementById("reflectDialog"),
     reflectForm: document.getElementById("reflectForm"),
     reflectInput: document.getElementById("reflectInput"),
+    taskForm: document.getElementById("taskForm"),
+    taskInput: document.getElementById("taskInput"),
+    taskList: document.getElementById("taskList"),
+    activeTaskLabel: document.getElementById("activeTaskLabel"),
+    calPrev: document.getElementById("calPrev"),
+    calNext: document.getElementById("calNext"),
+    calLabel: document.getElementById("calLabel"),
+    calGrid: document.getElementById("calGrid"),
+    exportBtn: document.getElementById("exportBtn"),
+    importBtn: document.getElementById("importBtn"),
+    importFile: document.getElementById("importFile"),
+    dataStatus: document.getElementById("dataStatus"),
+    installBtn: document.getElementById("installBtn"),
   };
 
   let state = loadState();
   let tickId = null;
   let chimeCtx = null;
   let pendingReflect = null;
+  let calCursor = startOfMonth(new Date());
+  let deferredInstall = null;
 
-  function todayKey(date = new Date()) {
-    return date.toISOString().slice(0, 10);
+  function pad(n) {
+    return String(n).padStart(2, "0");
+  }
+
+  function localDateKey(date = new Date()) {
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  }
+
+  function startOfMonth(date) {
+    return new Date(date.getFullYear(), date.getMonth(), 1);
+  }
+
+  function addMonths(date, delta) {
+    return new Date(date.getFullYear(), date.getMonth() + delta, 1);
   }
 
   function yesterdayKey() {
     const d = new Date();
     d.setDate(d.getDate() - 1);
-    return todayKey(d);
+    return localDateKey(d);
+  }
+
+  function uid() {
+    return `${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`;
   }
 
   function loadState() {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem("still-pomodoro-v1");
+      const raw =
+        localStorage.getItem(STORAGE_KEY) ||
+        localStorage.getItem("still-pomodoro-v2") ||
+        localStorage.getItem("still-pomodoro-v1");
       if (!raw) return structuredClone(defaults);
       const parsed = JSON.parse(raw);
-      return {
+      const next = {
         settings: { ...defaults.settings, ...(parsed.settings || {}) },
         ambient: { ...defaults.ambient, ...(parsed.ambient || {}) },
         stats: { ...defaults.stats, ...(parsed.stats || {}) },
+        history: { ...(parsed.history || {}) },
+        tasks: Array.isArray(parsed.tasks) ? parsed.tasks.slice(0, 50) : [],
+        activeTaskId: parsed.activeTaskId || null,
         memory: Array.isArray(parsed.memory) ? parsed.memory.slice(0, 100) : [],
         session: { ...defaults.session, ...(parsed.session || {}) },
       };
+
+      // Seed history from today count if missing.
+      const today = localDateKey();
+      if (!next.history[today] && next.stats.today > 0) {
+        next.history[today] = next.stats.today;
+      }
+      if (next.activeTaskId && !next.tasks.some((t) => t.id === next.activeTaskId)) {
+        next.activeTaskId = null;
+      }
+      return next;
     } catch {
       return structuredClone(defaults);
     }
@@ -114,7 +164,7 @@
     const total = Math.max(0, Math.ceil(ms / 1000));
     const m = Math.floor(total / 60);
     const s = total % 60;
-    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    return `${pad(m)}:${pad(s)}`;
   }
 
   function formatStamp(iso) {
@@ -125,6 +175,10 @@
       hour: "numeric",
       minute: "2-digit",
     });
+  }
+
+  function activeTask() {
+    return state.tasks.find((t) => t.id === state.activeTaskId) || null;
   }
 
   function statusCopy() {
@@ -139,12 +193,12 @@
   }
 
   function refreshStatsDay() {
-    const today = todayKey();
+    const today = localDateKey();
     if (state.stats.lastActiveDate === today) return;
     if (state.stats.lastActiveDate && state.stats.lastActiveDate !== yesterdayKey()) {
       state.stats.streak = 0;
     }
-    state.stats.today = 0;
+    state.stats.today = state.history[today] || 0;
   }
 
   function updateRing() {
@@ -160,16 +214,118 @@
     state.memory.slice(0, 30).forEach((item) => {
       const li = document.createElement("li");
       li.className = "memory-item";
-      const kind =
-        item.kind === "focus"
-          ? "Focus"
-          : item.kind === "note"
-            ? "Note"
-            : item.kind;
-      li.innerHTML = `<p class="meta">${kind} · ${formatStamp(item.at)}</p><p class="text"></p>`;
+      const kind = item.kind === "focus" ? "Focus" : item.kind === "note" ? "Note" : item.kind;
+      li.innerHTML = `<p class="meta"></p><p class="text"></p>`;
+      li.querySelector(".meta").textContent = `${kind} · ${formatStamp(item.at)}`;
       li.querySelector(".text").textContent = item.text;
       els.memoryList.appendChild(li);
     });
+  }
+
+  function renderTasks() {
+    const current = activeTask();
+    els.activeTaskLabel.textContent = current ? current.text : "No task selected";
+    els.activeTaskLabel.classList.toggle("is-empty", !current);
+
+    els.taskList.innerHTML = "";
+    if (!state.tasks.length) {
+      const empty = document.createElement("li");
+      empty.className = "empty-hint";
+      empty.textContent = "Add something to the queue, then select it before you start.";
+      els.taskList.appendChild(empty);
+      return;
+    }
+
+    state.tasks.forEach((task) => {
+      const li = document.createElement("li");
+      li.className = "task-item" + (task.id === state.activeTaskId ? " is-active" : "") + (task.done ? " is-done" : "");
+
+      const select = document.createElement("button");
+      select.type = "button";
+      select.className = "task-select";
+      select.textContent = task.text;
+      select.addEventListener("click", () => {
+        state.activeTaskId = task.id === state.activeTaskId ? null : task.id;
+        saveState();
+        renderTasks();
+      });
+
+      const actions = document.createElement("div");
+      actions.className = "task-actions";
+
+      const doneBtn = document.createElement("button");
+      doneBtn.type = "button";
+      doneBtn.className = "tiny-action";
+      doneBtn.textContent = task.done ? "Undo" : "Done";
+      doneBtn.addEventListener("click", () => {
+        task.done = !task.done;
+        saveState();
+        renderTasks();
+      });
+
+      const delBtn = document.createElement("button");
+      delBtn.type = "button";
+      delBtn.className = "tiny-action danger";
+      delBtn.textContent = "Remove";
+      delBtn.addEventListener("click", () => {
+        state.tasks = state.tasks.filter((t) => t.id !== task.id);
+        if (state.activeTaskId === task.id) state.activeTaskId = null;
+        saveState();
+        renderTasks();
+      });
+
+      actions.append(doneBtn, delBtn);
+      li.append(select, actions);
+      els.taskList.appendChild(li);
+    });
+  }
+
+  function renderCalendar() {
+    const year = calCursor.getFullYear();
+    const month = calCursor.getMonth();
+    els.calLabel.textContent = calCursor.toLocaleString(undefined, {
+      month: "long",
+      year: "numeric",
+    });
+
+    const first = new Date(year, month, 1);
+    // Monday-first offset
+    const offset = (first.getDay() + 6) % 7;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const today = localDateKey();
+
+    let max = 1;
+    Object.values(state.history).forEach((v) => {
+      if (v > max) max = v;
+    });
+
+    els.calGrid.innerHTML = "";
+    for (let i = 0; i < offset; i += 1) {
+      const cell = document.createElement("div");
+      cell.className = "cal-cell is-blank";
+      els.calGrid.appendChild(cell);
+    }
+
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      const key = `${year}-${pad(month + 1)}-${pad(day)}`;
+      const count = state.history[key] || 0;
+      const cell = document.createElement("button");
+      cell.type = "button";
+      cell.className = "cal-cell";
+      if (key === today) cell.classList.add("is-today");
+      if (count > 0) {
+        const level = Math.min(4, Math.ceil((count / max) * 4));
+        cell.classList.add(`lvl-${level}`);
+      }
+      cell.innerHTML = `<span class="day">${day}</span><span class="count">${count || ""}</span>`;
+      cell.title = count ? `${count} focus${count === 1 ? "" : "es"}` : "No focus yet";
+      cell.addEventListener("click", () => {
+        els.dataStatus.textContent = count
+          ? `${key}: ${count} focus session${count === 1 ? "" : "s"}`
+          : `${key}: no focus sessions`;
+      });
+      els.calGrid.appendChild(cell);
+    }
   }
 
   function renderAmbient() {
@@ -226,7 +382,7 @@
     const cleaned = String(text || "").trim();
     if (!cleaned) return;
     state.memory.unshift({
-      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      id: uid(),
       kind,
       text: cleaned.slice(0, 140),
       at: new Date().toISOString(),
@@ -322,7 +478,7 @@
 
   function recordFocusComplete() {
     refreshStatsDay();
-    const today = todayKey();
+    const today = localDateKey();
     if (state.stats.lastActiveDate !== today) {
       if (state.stats.lastActiveDate === yesterdayKey()) state.stats.streak += 1;
       else state.stats.streak = 1;
@@ -332,12 +488,20 @@
     }
     state.stats.today += 1;
     state.stats.total += 1;
+    state.history[today] = (state.history[today] || 0) + 1;
+
+    const task = activeTask();
+    if (task && !task.done) {
+      task.focusCount = (task.focusCount || 0) + 1;
+    }
   }
 
   function askReflection() {
     return new Promise((resolve) => {
       pendingReflect = resolve;
+      const task = activeTask();
       els.reflectInput.value = "";
+      els.reflectInput.placeholder = task ? `Note on “${task.text}”` : "What clicked?";
       if (typeof els.reflectDialog.showModal === "function") {
         els.reflectDialog.showModal();
       } else {
@@ -355,14 +519,17 @@
     state.session.remainingMs = 0;
 
     if (finished === "focus") {
+      const task = activeTask();
       recordFocusComplete();
       playChime();
       notifyDone(finished);
       const note = await askReflection();
-      addMemory({
-        kind: "focus",
-        text: note || `Focused for ${state.settings.focus} minutes`,
-      });
+      const fallback = task
+        ? `Focused on ${task.text} · ${state.settings.focus}m`
+        : `Focused for ${state.settings.focus} minutes`;
+      addMemory({ kind: "focus", text: note || fallback });
+      renderTasks();
+      renderCalendar();
     } else {
       playChime();
       notifyDone(finished);
@@ -455,6 +622,58 @@
     });
   }
 
+  function exportData() {
+    const payload = {
+      app: "still",
+      version: 3,
+      exportedAt: new Date().toISOString(),
+      data: state,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `still-backup-${localDateKey()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    els.dataStatus.textContent = "Backup downloaded.";
+  }
+
+  function importData(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result));
+        const data = parsed.data || parsed;
+        if (!data || typeof data !== "object") throw new Error("Invalid file");
+        if (!confirm("Import will replace your current Still data on this device. Continue?")) {
+          els.dataStatus.textContent = "Import cancelled.";
+          return;
+        }
+        state = {
+          settings: { ...defaults.settings, ...(data.settings || {}) },
+          ambient: { ...defaults.ambient, ...(data.ambient || {}), playing: false },
+          stats: { ...defaults.stats, ...(data.stats || {}) },
+          history: { ...(data.history || {}) },
+          tasks: Array.isArray(data.tasks) ? data.tasks.slice(0, 50) : [],
+          activeTaskId: data.activeTaskId || null,
+          memory: Array.isArray(data.memory) ? data.memory.slice(0, 100) : [],
+          session: { ...defaults.session, ...(data.session || {}), running: false, endsAt: null },
+        };
+        saveState();
+        syncSettingsForm();
+        render();
+        renderTasks();
+        renderMemory();
+        renderCalendar();
+        els.dataStatus.textContent = "Import complete.";
+      } catch {
+        els.dataStatus.textContent = "Could not import that file.";
+      }
+    };
+    reader.readAsText(file);
+  }
+
   async function resumeIfNeeded() {
     refreshStatsDay();
     if (state.session.running && state.session.endsAt) {
@@ -470,20 +689,20 @@
       if (!state.session.durationMs) state.session.durationMs = modeDurationMs();
       if (state.session.remainingMs == null) state.session.remainingMs = state.session.durationMs;
     }
-    // Browsers block autoplay — keep preference but start stopped until user taps.
     state.ambient.playing = false;
     player.trackId = state.ambient.trackId;
     player.setVolume(state.ambient.volume);
     saveState();
     render();
+    renderTasks();
     renderMemory();
+    renderCalendar();
   }
 
   els.toggleBtn.addEventListener("click", () => {
     if (state.session.running) pauseTimer();
     else startTimer();
   });
-
   els.resetBtn.addEventListener("click", resetTimer);
   els.skipBtn.addEventListener("click", skipSession);
 
@@ -533,9 +752,7 @@
     player.setVolume(state.ambient.volume);
     const playing = await player.toggle();
     state.ambient.playing = playing;
-    if (!playing) {
-      els.status.textContent = "Tap Sound on again if audio is blocked";
-    }
+    if (!playing) els.status.textContent = "Tap Sound on again if audio is blocked";
     saveState();
     renderAmbient();
   });
@@ -544,6 +761,19 @@
     state.ambient.volume = clamp(Number(els.noiseVolume.value) / 100, 0, 1);
     player.setVolume(state.ambient.volume);
     saveState();
+  });
+
+  els.taskForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const text = els.taskInput.value.trim();
+    if (!text) return;
+    const task = { id: uid(), text: text.slice(0, 80), done: false, focusCount: 0, createdAt: new Date().toISOString() };
+    state.tasks.unshift(task);
+    if (!state.activeTaskId) state.activeTaskId = task.id;
+    state.tasks = state.tasks.slice(0, 50);
+    els.taskInput.value = "";
+    saveState();
+    renderTasks();
   });
 
   els.noteForm.addEventListener("submit", (e) => {
@@ -569,6 +799,54 @@
     }
   });
 
+  els.calPrev.addEventListener("click", () => {
+    calCursor = addMonths(calCursor, -1);
+    renderCalendar();
+  });
+  els.calNext.addEventListener("click", () => {
+    calCursor = addMonths(calCursor, 1);
+    renderCalendar();
+  });
+
+  els.exportBtn.addEventListener("click", exportData);
+  els.importBtn.addEventListener("click", () => els.importFile.click());
+  els.importFile.addEventListener("change", () => {
+    const file = els.importFile.files && els.importFile.files[0];
+    if (file) importData(file);
+    els.importFile.value = "";
+  });
+
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone =
+    window.matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredInstall = e;
+    els.installBtn.textContent = "Install app";
+    els.installBtn.hidden = false;
+  });
+
+  if (isIos && !isStandalone) {
+    els.installBtn.hidden = false;
+    els.installBtn.textContent = "Add to Home Screen";
+  }
+
+  els.installBtn.addEventListener("click", async () => {
+    if (deferredInstall) {
+      deferredInstall.prompt();
+      await deferredInstall.userChoice;
+      deferredInstall = null;
+      els.installBtn.hidden = true;
+      return;
+    }
+    if (isIos && !isStandalone) {
+      els.dataStatus.textContent = "In Safari: Share → Add to Home Screen";
+      els.settingsPanel.removeAttribute("hidden");
+      els.settingsToggle.setAttribute("aria-expanded", "true");
+    }
+  });
+
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") {
       syncRemainingFromClock();
@@ -581,6 +859,10 @@
   });
 
   window.addEventListener("beforeunload", saveState);
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
+  }
 
   buildPlaylist();
   syncSettingsForm();
