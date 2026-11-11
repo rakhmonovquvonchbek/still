@@ -8,6 +8,8 @@ https://rakhmonovquvonchbek.github.io/still/
 
 ## Features
 
+- Seamless on-device accounts (create with a name, switch anytime)
+- Sync codes to move an account between devices
 - Installable PWA (Add to Home Screen / Install app)
 - Focus / short / long cycles
 - Ambient playlist with richer stereo loops + crossfade

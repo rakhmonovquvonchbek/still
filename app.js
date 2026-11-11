@@ -1,7 +1,7 @@
 (() => {
-  const STORAGE_KEY = "still-pomodoro-v3";
   const CIRCUMFERENCE = 2 * Math.PI * 54;
   const { TRACKS, player } = window.StillAudio;
+  const auth = window.StillAuth;
 
   const defaults = {
     settings: {
@@ -80,9 +80,23 @@
     importFile: document.getElementById("importFile"),
     dataStatus: document.getElementById("dataStatus"),
     installBtn: document.getElementById("installBtn"),
+    accountBtn: document.getElementById("accountBtn"),
+    accountAvatar: document.getElementById("accountAvatar"),
+    accountLabel: document.getElementById("accountLabel"),
+    accountDialog: document.getElementById("accountDialog"),
+    accountClose: document.getElementById("accountClose"),
+    accountCreateForm: document.getElementById("accountCreateForm"),
+    accountNameInput: document.getElementById("accountNameInput"),
+    accountListWrap: document.getElementById("accountListWrap"),
+    accountList: document.getElementById("accountList"),
+    accountSyncExport: document.getElementById("accountSyncExport"),
+    accountSyncImport: document.getElementById("accountSyncImport"),
+    accountSignOut: document.getElementById("accountSignOut"),
+    accountStatus: document.getElementById("accountStatus"),
+    accountTitle: document.getElementById("accountTitle"),
   };
 
-  let state = loadState();
+  let state = null;
   let tickId = null;
   let chimeCtx = null;
   let pendingReflect = null;
@@ -115,44 +129,123 @@
     return `${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`;
   }
 
+  function normalizeState(parsed) {
+    const next = {
+      settings: { ...defaults.settings, ...(parsed.settings || {}) },
+      ambient: { ...defaults.ambient, ...(parsed.ambient || {}) },
+      stats: { ...defaults.stats, ...(parsed.stats || {}) },
+      history: { ...(parsed.history || {}) },
+      tasks: Array.isArray(parsed.tasks) ? parsed.tasks.slice(0, 50) : [],
+      activeTaskId: parsed.activeTaskId || null,
+      memory: Array.isArray(parsed.memory) ? parsed.memory.slice(0, 100) : [],
+      session: { ...defaults.session, ...(parsed.session || {}) },
+    };
+
+    const today = localDateKey();
+    if (!next.history[today] && next.stats.today > 0) {
+      next.history[today] = next.stats.today;
+    }
+    if (next.activeTaskId && !next.tasks.some((t) => t.id === next.activeTaskId)) {
+      next.activeTaskId = null;
+    }
+    if (!next.settings.layout) {
+      next.settings.layout = window.innerWidth >= 980 ? "laptop" : "mobile";
+    }
+    return next;
+  }
+
   function loadState() {
     try {
-      const raw =
-        localStorage.getItem(STORAGE_KEY) ||
-        localStorage.getItem("still-pomodoro-v2") ||
-        localStorage.getItem("still-pomodoro-v1");
-      if (!raw) return structuredClone(defaults);
-      const parsed = JSON.parse(raw);
-      const next = {
-        settings: { ...defaults.settings, ...(parsed.settings || {}) },
-        ambient: { ...defaults.ambient, ...(parsed.ambient || {}) },
-        stats: { ...defaults.stats, ...(parsed.stats || {}) },
-        history: { ...(parsed.history || {}) },
-        tasks: Array.isArray(parsed.tasks) ? parsed.tasks.slice(0, 50) : [],
-        activeTaskId: parsed.activeTaskId || null,
-        memory: Array.isArray(parsed.memory) ? parsed.memory.slice(0, 100) : [],
-        session: { ...defaults.session, ...(parsed.session || {}) },
-      };
-
-      // Seed history from today count if missing.
-      const today = localDateKey();
-      if (!next.history[today] && next.stats.today > 0) {
-        next.history[today] = next.stats.today;
-      }
-      if (next.activeTaskId && !next.tasks.some((t) => t.id === next.activeTaskId)) {
-        next.activeTaskId = null;
-      }
-      if (!next.settings.layout) {
-        next.settings.layout = window.innerWidth >= 980 ? "laptop" : "mobile";
-      }
-      return next;
+      const parsed = auth.loadState(defaults) || defaults;
+      return normalizeState(parsed);
     } catch {
       return structuredClone(defaults);
     }
   }
 
   function saveState() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    auth.saveState(state);
+  }
+
+  function renderAccount() {
+    const current = auth.active();
+    if (current) {
+      els.accountLabel.textContent = current.name;
+      els.accountAvatar.textContent = current.name.slice(0, 1).toUpperCase();
+      els.accountAvatar.style.background = current.color || "rgba(127, 159, 134, 0.28)";
+      els.accountTitle.textContent = `Hey, ${current.name}`;
+      els.accountSignOut.hidden = false;
+    } else {
+      els.accountLabel.textContent = "Sign in";
+      els.accountAvatar.textContent = "?";
+      els.accountAvatar.style.background = "rgba(127, 159, 134, 0.28)";
+      els.accountTitle.textContent = "Your account";
+      els.accountSignOut.hidden = true;
+    }
+
+    const accounts = auth.list();
+    els.accountListWrap.hidden = accounts.length === 0;
+    els.accountList.innerHTML = "";
+    accounts.forEach((account) => {
+      const li = document.createElement("li");
+      li.className = "account-item" + (account.id === auth.meta.activeId ? " is-active" : "");
+      li.innerHTML = `
+        <span class="account-avatar" style="background:${account.color}"></span>
+        <button type="button" class="who">
+          <strong></strong>
+          <span></span>
+        </button>
+        <button type="button" class="tiny-action danger" data-remove>Remove</button>
+      `;
+      li.querySelector(".account-avatar").textContent = account.name.slice(0, 1).toUpperCase();
+      li.querySelector("strong").textContent = account.name;
+      li.querySelector("span").textContent =
+        account.id === auth.meta.activeId ? "Active now" : "Tap to switch";
+      li.querySelector(".who").addEventListener("click", () => {
+        reloadAsAccount(() => auth.switchTo(account.id));
+      });
+      li.querySelector("[data-remove]").addEventListener("click", () => {
+        if (!confirm(`Remove ${account.name}'s account from this device?`)) return;
+        reloadAsAccount(() => auth.remove(account.id));
+      });
+      els.accountList.appendChild(li);
+    });
+  }
+
+  function reloadAsAccount(mutate) {
+    stopTicker();
+    if (state) saveState();
+    mutate();
+    state = loadState();
+    player.pause();
+    state.ambient.playing = false;
+    player.trackId = state.ambient.trackId;
+    player.setVolume(state.ambient.volume);
+    syncSettingsForm();
+    render();
+    renderTasks();
+    renderMemory();
+    renderCalendar();
+    renderAccount();
+    renderAmbient();
+    els.accountStatus.textContent = auth.active()
+      ? `Signed in as ${auth.active().name}`
+      : "Using guest mode";
+    saveState();
+  }
+
+  function openAccountDialog() {
+    els.accountStatus.textContent = "";
+    els.accountNameInput.value = "";
+    renderAccount();
+    if (typeof els.accountDialog.showModal === "function") {
+      els.accountDialog.showModal();
+      setTimeout(() => els.accountNameInput.focus(), 50);
+    }
+  }
+
+  function closeAccountDialog() {
+    if (els.accountDialog.open) els.accountDialog.close();
   }
 
   function clamp(n, min, max) {
@@ -878,7 +971,7 @@
   window.addEventListener("beforeunload", saveState);
 
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./sw.js?v=10").then((reg) => {
+    navigator.serviceWorker.register("./sw.js?v=11").then((reg) => {
       reg.update().catch(() => {});
     }).catch(() => {});
   }
@@ -891,7 +984,78 @@
     saveState();
   });
 
+  els.accountBtn.addEventListener("click", openAccountDialog);
+  els.accountClose.addEventListener("click", closeAccountDialog);
+
+  els.accountCreateForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const name = els.accountNameInput.value.trim();
+    if (!name) return;
+    try {
+      reloadAsAccount(() => {
+        if (!auth.active() && auth.list().length === 0) auth.claimGuest(name);
+        else auth.create(name);
+      });
+      els.accountNameInput.value = "";
+      els.accountStatus.textContent = `Welcome, ${auth.active().name}`;
+    } catch (err) {
+      els.accountStatus.textContent = err.message || "Could not create account";
+    }
+  });
+
+  els.accountSignOut.addEventListener("click", () => {
+    reloadAsAccount(() => auth.signOut());
+    els.accountStatus.textContent = "Guest mode — data stays on this browser only";
+  });
+
+  els.accountSyncExport.addEventListener("click", async () => {
+    try {
+      const code = auth.exportSyncCode(state);
+      await navigator.clipboard.writeText(code);
+      els.accountStatus.textContent = "Sync code copied. Paste it on another device to restore.";
+    } catch {
+      els.accountStatus.textContent = "Could not copy sync code.";
+    }
+  });
+
+  els.accountSyncImport.addEventListener("click", () => {
+    const code = prompt("Paste your Still sync code");
+    if (!code) return;
+    try {
+      const payload = auth.importSyncCode(code);
+      const name = payload.account?.name || "Imported";
+      reloadAsAccount(() => {
+        const account = auth.create(name);
+        if (payload.account?.color) {
+          account.color = payload.account.color;
+          const row = auth.meta.accounts.find((a) => a.id === account.id);
+          if (row) row.color = account.color;
+          localStorage.setItem("still-accounts-meta-v1", JSON.stringify(auth.meta));
+        }
+        auth.saveState(payload.state);
+      });
+      state = normalizeState(payload.state);
+      saveState();
+      syncSettingsForm();
+      render();
+      renderTasks();
+      renderMemory();
+      renderCalendar();
+      renderAccount();
+      els.accountStatus.textContent = `Imported ${auth.active()?.name || "account"}`;
+    } catch {
+      els.accountStatus.textContent = "That sync code looks invalid.";
+    }
+  });
+
+  state = loadState();
   buildPlaylist();
   syncSettingsForm();
+  renderAccount();
   resumeIfNeeded();
+
+  if (auth.ensureWelcomeNeeded()) {
+    openAccountDialog();
+    els.accountStatus.textContent = "Create your account to keep focus data separate.";
+  }
 })();
