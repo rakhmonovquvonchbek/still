@@ -1,20 +1,32 @@
-const CACHE = "still-v14";
+const CACHE = "still-v15";
 const CORE = [
   "./",
   "./index.html",
   "./styles.css",
-  "./styles.css?v=14",
+  "./styles.css?v=15",
   "./app.js",
-  "./app.js?v=14",
+  "./app.js?v=15",
+  "./art.js",
+  "./art.js?v=15",
   "./audio.js",
-  "./audio.js?v=14",
+  "./audio.js?v=15",
   "./auth.js",
-  "./auth.js?v=14",
+  "./auth.js?v=15",
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/apple-touch-icon.png",
-  "./media/backdrop.jpg",
+  "./media/scene-00.jpg",
+  "./media/scene-01.jpg",
+  "./media/scene-02.jpg",
+  "./media/scene-03.jpg",
+  "./media/scene-04.jpg",
+  "./media/scene-05.jpg",
+  "./media/scene-06.jpg",
+  "./media/scene-07.jpg",
+  "./media/scene-08.jpg",
+  "./media/scene-09.jpg",
+  "./media/scene-10.jpg",
 ];
 
 self.addEventListener("install", (event) => {
