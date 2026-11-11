@@ -85,6 +85,14 @@ button {
 .brand {
   text-align: center;
   animation: rise 0.9s var(--ease) both;
+  display: grid;
+  gap: 0.85rem;
+  justify-items: center;
+}
+
+.brand-copy {
+  display: grid;
+  justify-items: center;
 }
 
 .brand-name {
@@ -99,6 +107,34 @@ button {
   margin-top: 0.4rem;
   color: var(--ink-soft);
   font-size: 0.95rem;
+}
+
+.layout-switch {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(16, 22, 18, 0.45);
+  backdrop-filter: blur(10px);
+}
+
+.layout-btn {
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 500;
+  transition: background 0.25s var(--ease), color 0.25s var(--ease);
+}
+
+.layout-btn:hover {
+  color: var(--ink);
+}
+
+.layout-btn.is-active {
+  background: rgba(127, 159, 134, 0.22);
+  color: var(--moss-bright);
 }
 
 .install-btn {
@@ -760,5 +796,169 @@ body.is-running .ring-progress {
   .cal-nav {
     width: 100%;
     justify-content: space-between;
+  }
+}
+
+/* -------- Laptop layout (opt-in) -------- */
+body.layout-laptop {
+  overflow-x: hidden;
+}
+
+body.layout-laptop .veil {
+  background:
+    radial-gradient(ellipse 55% 45% at 30% 20%, rgba(10, 14, 16, 0.08), transparent 60%),
+    linear-gradient(90deg, rgba(10, 14, 16, 0.55), rgba(10, 14, 16, 0.28) 45%, rgba(10, 14, 16, 0.62));
+}
+
+body.layout-laptop .stage {
+  width: min(1180px, calc(100% - 3rem));
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: 2.4rem 0 2.8rem;
+  display: grid;
+  grid-template-columns: minmax(340px, 1.05fr) minmax(320px, 0.95fr);
+  grid-template-areas:
+    "brand brand"
+    "focus tasks"
+    "ambient calendar"
+    "stats memory"
+    "panel panel";
+  column-gap: 1.6rem;
+  row-gap: 1.1rem;
+  align-items: start;
+  justify-content: center;
+}
+
+body.layout-laptop .brand {
+  grid-area: brand;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  text-align: left;
+  justify-items: stretch;
+}
+
+body.layout-laptop .brand-copy {
+  justify-items: start;
+}
+
+body.layout-laptop .brand-name {
+  font-size: clamp(3rem, 4vw, 3.8rem);
+}
+
+body.layout-laptop .brand-line {
+  margin-top: 0.35rem;
+}
+
+body.layout-laptop .install-btn {
+  margin-top: 0.7rem;
+}
+
+body.layout-laptop .timer-block {
+  grid-area: focus;
+  padding: 1.35rem 1.25rem 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: rgba(16, 22, 18, 0.42);
+  backdrop-filter: blur(14px);
+  gap: 1.2rem;
+  min-height: 100%;
+}
+
+body.layout-laptop .ring-wrap {
+  width: min(300px, 100%);
+}
+
+body.layout-laptop .time {
+  font-size: clamp(3.6rem, 5vw, 4.8rem);
+}
+
+body.layout-laptop .ambient {
+  grid-area: ambient;
+}
+
+body.layout-laptop .stats {
+  grid-area: stats;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(16, 22, 18, 0.35);
+  backdrop-filter: blur(10px);
+  overflow: hidden;
+}
+
+body.layout-laptop .stats > div {
+  border-top: none;
+  border-right: 1px solid var(--line);
+  padding: 1rem 0.75rem;
+}
+
+body.layout-laptop .stats > div:last-child {
+  border-right: none;
+}
+
+body.layout-laptop .tasks,
+body.layout-laptop .calendar,
+body.layout-laptop .memory {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(16, 22, 18, 0.4);
+  backdrop-filter: blur(12px);
+  padding: 0.95rem 1rem 1rem;
+}
+
+body.layout-laptop .tasks .section-head,
+body.layout-laptop .calendar .section-head,
+body.layout-laptop .memory .section-head {
+  border-top: none;
+  padding-top: 0;
+}
+
+body.layout-laptop .tasks { grid-area: tasks; }
+body.layout-laptop .calendar { grid-area: calendar; }
+body.layout-laptop .memory { grid-area: memory; }
+
+body.layout-laptop .panel {
+  grid-area: panel;
+}
+
+body.layout-laptop .task-list,
+body.layout-laptop .memory-list {
+  max-height: 180px;
+}
+
+body.layout-laptop .calendar .cal-grid {
+  gap: 0.35rem;
+}
+
+body.layout-laptop .cal-cell {
+  border-radius: 12px;
+}
+
+@media (max-width: 900px) {
+  /* If someone forces laptop on a narrow screen, keep it usable */
+  body.layout-laptop .stage {
+    width: min(460px, calc(100% - 1.75rem));
+    display: flex;
+    flex-direction: column;
+  }
+
+  body.layout-laptop .brand {
+    display: grid;
+    justify-items: center;
+    text-align: center;
+  }
+
+  body.layout-laptop .brand-copy {
+    justify-items: center;
+  }
+
+  body.layout-laptop .timer-block,
+  body.layout-laptop .tasks,
+  body.layout-laptop .calendar,
+  body.layout-laptop .memory,
+  body.layout-laptop .stats {
+    width: 100%;
   }
 }

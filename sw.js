@@ -1,4 +1,4 @@
-const CACHE = "still-v3";
+const CACHE = "still-v4";
 const CORE = [
   "./",
   "./index.html",

@@ -27,9 +27,15 @@
 
     <main class="stage">
       <header class="brand">
-        <p class="brand-name">Still</p>
-        <p class="brand-line">Focus in quiet cycles.</p>
-        <button id="installBtn" class="install-btn" type="button" hidden>Install app</button>
+        <div class="brand-copy">
+          <p class="brand-name">Still</p>
+          <p class="brand-line">Focus in quiet cycles.</p>
+          <button id="installBtn" class="install-btn" type="button" hidden>Install app</button>
+        </div>
+        <div class="layout-switch" role="group" aria-label="Layout">
+          <button type="button" class="layout-btn is-active" data-layout="mobile">Mobile</button>
+          <button type="button" class="layout-btn" data-layout="laptop">Laptop</button>
+        </div>
       </header>
 
       <section class="timer-block" aria-live="polite">

@@ -11,6 +11,7 @@
       longEvery: 4,
       autoStart: true,
       soundOn: true,
+      layout: null,
     },
     ambient: {
       trackId: "rain",
@@ -79,6 +80,7 @@
     importFile: document.getElementById("importFile"),
     dataStatus: document.getElementById("dataStatus"),
     installBtn: document.getElementById("installBtn"),
+    layoutBtns: [...document.querySelectorAll(".layout-btn")],
   };
 
   let state = loadState();
@@ -140,6 +142,9 @@
       }
       if (next.activeTaskId && !next.tasks.some((t) => t.id === next.activeTaskId)) {
         next.activeTaskId = null;
+      }
+      if (!next.settings.layout) {
+        next.settings.layout = window.innerWidth >= 980 ? "laptop" : "mobile";
       }
       return next;
     } catch {
@@ -359,6 +364,16 @@
       : "Still — Pomodoro";
   }
 
+  function applyLayout(layout = state.settings.layout || "mobile") {
+    const mode = layout === "laptop" ? "laptop" : "mobile";
+    state.settings.layout = mode;
+    document.body.classList.toggle("layout-laptop", mode === "laptop");
+    document.body.classList.toggle("layout-mobile", mode === "mobile");
+    els.layoutBtns.forEach((btn) => {
+      btn.classList.toggle("is-active", btn.dataset.layout === mode);
+    });
+  }
+
   function syncSettingsForm() {
     els.focusMins.value = state.settings.focus;
     els.shortMins.value = state.settings.short;
@@ -366,6 +381,7 @@
     els.longEvery.value = state.settings.longEvery;
     els.autoStart.checked = state.settings.autoStart;
     els.soundOn.checked = state.settings.soundOn;
+    applyLayout();
   }
 
   function readSettingsFromForm() {
@@ -863,6 +879,13 @@
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("./sw.js").catch(() => {});
   }
+
+  els.layoutBtns.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      applyLayout(btn.dataset.layout);
+      saveState();
+    });
+  });
 
   buildPlaylist();
   syncSettingsForm();
