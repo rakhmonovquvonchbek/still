@@ -13,8 +13,8 @@
       soundOn: true,
     },
     ambient: {
-      trackId: "pink",
-      volume: 0.35,
+      trackId: "rain",
+      volume: 0.55,
       playing: false,
     },
     stats: {
@@ -445,11 +445,11 @@
       btn.setAttribute("role", "option");
       btn.addEventListener("click", async () => {
         state.ambient.trackId = track.id;
+        player.setVolume(state.ambient.volume);
+        const ok = await player.play(track.id);
+        state.ambient.playing = ok;
         saveState();
         renderAmbient();
-        if (state.ambient.playing) {
-          await player.play(track.id);
-        }
       });
       els.noisePlaylist.appendChild(btn);
     });
@@ -533,6 +533,9 @@
     player.setVolume(state.ambient.volume);
     const playing = await player.toggle();
     state.ambient.playing = playing;
+    if (!playing) {
+      els.status.textContent = "Tap Sound on again if audio is blocked";
+    }
     saveState();
     renderAmbient();
   });

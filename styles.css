@@ -56,8 +56,8 @@ button {
   z-index: 1;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 70% 50% at 50% 18%, rgba(13, 18, 16, 0.15), transparent 60%),
-    linear-gradient(180deg, rgba(13, 18, 16, 0.25), rgba(13, 18, 16, 0.72) 70%, rgba(13, 18, 16, 0.9));
+    radial-gradient(ellipse 60% 40% at 50% 20%, rgba(10, 14, 16, 0.1), transparent 55%),
+    linear-gradient(180deg, rgba(10, 14, 16, 0.18), rgba(10, 14, 16, 0.42) 55%, rgba(10, 14, 16, 0.78));
 }
 
 .grain {
