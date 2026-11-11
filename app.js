@@ -334,7 +334,7 @@
 
   function renderAmbient() {
     els.noiseToggle.setAttribute("aria-pressed", state.ambient.playing ? "true" : "false");
-    els.noiseToggle.textContent = state.ambient.playing ? "Sound on" : "Sound off";
+    els.noiseToggle.textContent = state.ambient.playing ? "On" : "Off";
     els.noiseVolume.value = String(Math.round(state.ambient.volume * 100));
     [...els.noisePlaylist.querySelectorAll(".track")].forEach((btn) => {
       btn.classList.toggle("is-active", btn.dataset.track === state.ambient.trackId);
@@ -780,7 +780,7 @@
     player.setVolume(state.ambient.volume);
     const playing = await player.toggle();
     state.ambient.playing = playing;
-    if (!playing) els.status.textContent = "Tap Sound on again if audio is blocked";
+    if (!playing) els.status.textContent = "Tap On again if blocked";
     saveState();
     renderAmbient();
   });
@@ -889,7 +889,7 @@
   window.addEventListener("beforeunload", saveState);
 
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./sw.js?v=7").then((reg) => {
+    navigator.serviceWorker.register("./sw.js?v=8").then((reg) => {
       reg.update().catch(() => {});
     }).catch(() => {});
   }

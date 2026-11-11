@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#101612" />
+    <meta name="theme-color" content="#0b1014" />
     <meta name="description" content="Still — a calm pomodoro with ambient sound, tasks, memory, and a focus calendar." />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -18,7 +18,7 @@
       href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Sora:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=7" />
+    <link rel="stylesheet" href="styles.css?v=8" />
   </head>
   <body class="layout-mobile">
     <canvas id="art" class="art" aria-hidden="true"></canvas>
@@ -38,66 +38,71 @@
       </header>
 
       <section class="timer-block" aria-live="polite">
-        <div class="modes" role="tablist" aria-label="Session type">
-          <button class="mode is-active" data-mode="focus" role="tab" aria-selected="true">Focus</button>
-          <button class="mode" data-mode="short" role="tab" aria-selected="false">Short</button>
-          <button class="mode" data-mode="long" role="tab" aria-selected="false">Long</button>
+        <div class="timer-top">
+          <div class="modes" role="tablist" aria-label="Session type">
+            <button class="mode is-active" data-mode="focus" role="tab" aria-selected="true">Focus</button>
+            <button class="mode" data-mode="short" role="tab" aria-selected="false">Short</button>
+            <button class="mode" data-mode="long" role="tab" aria-selected="false">Long</button>
+          </div>
+          <p id="activeTaskLabel" class="active-task">No task</p>
         </div>
 
-        <p id="activeTaskLabel" class="active-task">No task selected</p>
+        <div class="timer-core">
+          <div class="ring-wrap">
+            <svg class="ring" viewBox="0 0 120 120" aria-hidden="true">
+              <circle class="ring-track" cx="60" cy="60" r="54" />
+              <circle class="ring-progress" cx="60" cy="60" r="54" />
+            </svg>
+            <div class="time-face">
+              <p id="time" class="time">25:00</p>
+              <p id="status" class="status">Ready</p>
+            </div>
+          </div>
 
-        <div class="ring-wrap">
-          <svg class="ring" viewBox="0 0 120 120" aria-hidden="true">
-            <circle class="ring-track" cx="60" cy="60" r="54" />
-            <circle class="ring-progress" cx="60" cy="60" r="54" />
-          </svg>
-          <div class="time-face">
-            <p id="time" class="time">25:00</p>
-            <p id="status" class="status">Ready when you are</p>
+          <div class="controls">
+            <button id="resetBtn" class="ghost" type="button">Reset</button>
+            <button id="toggleBtn" class="primary" type="button">Start</button>
+            <button id="skipBtn" class="ghost" type="button">Skip</button>
           </div>
         </div>
 
-        <div class="controls">
-          <button id="resetBtn" class="ghost" type="button">Reset</button>
-          <button id="toggleBtn" class="primary" type="button">Start</button>
-          <button id="skipBtn" class="ghost" type="button">Skip</button>
-        </div>
-      </section>
+        <div class="under-timer">
+          <section class="stats" aria-label="Progress">
+            <div>
+              <p class="stat-value" id="todayCount">0</p>
+              <p class="stat-label">Today</p>
+            </div>
+            <div>
+              <p class="stat-value" id="streakCount">0</p>
+              <p class="stat-label">Streak</p>
+            </div>
+            <div>
+              <p class="stat-value" id="totalCount">0</p>
+              <p class="stat-label">Total</p>
+            </div>
+          </section>
 
-      <section class="ambient" aria-label="Ambient sound">
-        <div class="ambient-head">
-          <button id="noiseToggle" class="noise-toggle" type="button" aria-pressed="false">Sound off</button>
-          <input id="noiseVolume" class="volume" type="range" min="0" max="100" value="55" aria-label="Ambient volume" />
-        </div>
-        <div id="noisePlaylist" class="playlist" role="listbox" aria-label="Ambient playlist"></div>
-      </section>
-
-      <section class="stats" aria-label="Progress">
-        <div>
-          <p class="stat-value" id="todayCount">0</p>
-          <p class="stat-label">Today</p>
-        </div>
-        <div>
-          <p class="stat-value" id="streakCount">0</p>
-          <p class="stat-label">Streak</p>
-        </div>
-        <div>
-          <p class="stat-value" id="totalCount">0</p>
-          <p class="stat-label">All time</p>
+          <section class="ambient" aria-label="Ambient sound">
+            <div class="ambient-head">
+              <button id="noiseToggle" class="noise-toggle" type="button" aria-pressed="false">Off</button>
+              <input id="noiseVolume" class="volume" type="range" min="0" max="100" value="55" aria-label="Ambient volume" />
+            </div>
+            <div id="noisePlaylist" class="playlist" role="listbox" aria-label="Ambient playlist"></div>
+          </section>
         </div>
       </section>
 
       <nav class="dock-tabs" role="tablist" aria-label="Panels">
         <button type="button" class="dock-tab is-active" data-pane="tasks" role="tab" aria-selected="true">Queue</button>
-        <button type="button" class="dock-tab" data-pane="calendar" role="tab" aria-selected="false">Calendar</button>
+        <button type="button" class="dock-tab" data-pane="calendar" role="tab" aria-selected="false">Cal</button>
         <button type="button" class="dock-tab" data-pane="memory" role="tab" aria-selected="false">Memory</button>
-        <button type="button" class="dock-tab" data-pane="settings" role="tab" aria-selected="false">Settings</button>
+        <button type="button" class="dock-tab" data-pane="settings" role="tab" aria-selected="false">More</button>
       </nav>
 
       <div class="dock">
         <section class="pane tasks is-active" data-pane="tasks" aria-label="Task queue">
           <form id="taskForm" class="note-form">
-            <input id="taskInput" type="text" maxlength="80" placeholder="Add a focus target" autocomplete="off" />
+            <input id="taskInput" type="text" maxlength="80" placeholder="Focus target" autocomplete="off" />
             <button type="submit">Add</button>
           </form>
           <ul id="taskList" class="task-list"></ul>
@@ -119,7 +124,7 @@
 
         <section class="pane memory" data-pane="memory" aria-label="Memory" hidden>
           <form id="noteForm" class="note-form">
-            <input id="noteInput" type="text" maxlength="140" placeholder="Save a note" autocomplete="off" />
+            <input id="noteInput" type="text" maxlength="140" placeholder="Note" autocomplete="off" />
             <button type="submit">Save</button>
           </form>
           <ul id="memoryList" class="memory-list"></ul>
@@ -133,19 +138,19 @@
               <span>min</span>
             </label>
             <label>
-              Short break
+              Short
               <input id="shortMins" type="number" min="1" max="30" />
               <span>min</span>
             </label>
             <label>
-              Long break
+              Long
               <input id="longMins" type="number" min="1" max="60" />
               <span>min</span>
             </label>
             <label>
               Long every
               <input id="longEvery" type="number" min="2" max="12" />
-              <span>focus</span>
+              <span>x</span>
             </label>
             <label class="check">
               <input id="autoStart" type="checkbox" />
@@ -169,7 +174,7 @@
     <dialog id="reflectDialog" class="reflect">
       <form method="dialog" id="reflectForm">
         <h2>Focus complete</h2>
-        <p>Leave a short memory for this session, or skip.</p>
+        <p>Leave a short memory, or skip.</p>
         <input id="reflectInput" type="text" maxlength="140" placeholder="What clicked?" />
         <div class="reflect-actions">
           <button value="skip" class="ghost" type="submit">Skip</button>
@@ -178,8 +183,8 @@
       </form>
     </dialog>
 
-    <script src="art.js?v=7"></script>
-    <script src="audio.js?v=7"></script>
-    <script src="app.js?v=7"></script>
+    <script src="art.js?v=8"></script>
+    <script src="audio.js?v=8"></script>
+    <script src="app.js?v=8"></script>
   </body>
 </html>
