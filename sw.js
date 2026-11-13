@@ -1,6 +1,22 @@
-const CACHE = "still-v17";
+const CACHE = "still-v18";
 const CORE = [
-  "./",\n  "./index.html",\n  "./styles.css",\n  "./styles.css?v=17",\n  "./app.js",\n  "./app.js?v=17",\n  "./art.js",\n  "./art.js?v=17",\n  "./audio.js",\n  "./audio.js?v=17",\n  "./auth.js",\n  "./auth.js?v=17",\n  "./manifest.webmanifest",\n  "./icons/icon-192.png",\n  "./icons/icon-512.png",\n  "./icons/apple-touch-icon.png",\n  "./media/scene-00.jpg",\n  "./media/scene-01.jpg",\n  "./media/scene-02.jpg",\n  "./media/scene-03.jpg",\n  "./media/scene-04.jpg",\n  "./media/scene-05.jpg",\n  "./media/scene-06.jpg",\n  "./media/scene-07.jpg",\n  "./media/scene-08.jpg",\n  "./media/scene-09.jpg",\n  "./media/scene-10.jpg",\n  "./media/scene-11.jpg",\n  "./media/scene-12.jpg",\n  "./media/scene-13.jpg",\n  "./media/scene-14.jpg",\n  "./media/scene-15.jpg",\n  "./media/scene-16.jpg",\n  "./media/scene-17.jpg",\n  "./media/scene-18.jpg",\n  "./media/scene-19.jpg",\n  "./media/scene-20.jpg",\n  "./media/scene-21.jpg",\n  "./media/scene-22.jpg",\n  "./media/scene-23.jpg",\n  "./media/scene-24.jpg",\n  "./media/scene-25.jpg",\n  "./media/scene-26.jpg",\n  "./media/scene-27.jpg",\n  "./media/scene-28.jpg",\n  "./media/scene-29.jpg",\n  "./media/scene-30.jpg",
+  "./",
+  "./index.html",
+  "./styles.css",
+  "./styles.css?v=18",
+  "./app.js",
+  "./app.js?v=18",
+  "./art.js",
+  "./art.js?v=18",
+  "./audio.js",
+  "./audio.js?v=18",
+  "./auth.js",
+  "./auth.js?v=18",
+  "./manifest.webmanifest",
+  "./icons/icon-192.png",
+  "./icons/icon-512.png",
+  "./icons/apple-touch-icon.png",
+  "./media/catalog.json",
 ];
 
 self.addEventListener("install", (event) => {
@@ -24,6 +40,29 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+
+  // Images: cache-as-you-go only (do not precache the full library).
+  const isMedia =
+    url.pathname.includes("/media/photos/") ||
+    url.pathname.includes("/media/artworks/") ||
+    /\.(?:jpg|jpeg|webp|png)$/i.test(url.pathname);
+
+  if (isMedia) {
+    event.respondWith(
+      caches.open(CACHE).then(async (cache) => {
+        const cached = await cache.match(req);
+        if (cached) return cached;
+        try {
+          const res = await fetch(req);
+          if (res && res.ok) cache.put(req, res.clone());
+          return res;
+        } catch (err) {
+          return cached || Response.error();
+        }
+      })
+    );
+    return;
+  }
 
   event.respondWith(
     caches.match(req).then((cached) => {

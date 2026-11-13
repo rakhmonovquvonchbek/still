@@ -12,6 +12,8 @@
       autoStart: true,
       soundOn: true,
       layout: null,
+      backdropMode: "both",
+      backdropInterval: "20s",
     },
     ambient: {
       trackId: "rain",
@@ -110,6 +112,8 @@
     accountTitle: document.getElementById("accountTitle"),
     accountHint: document.getElementById("accountHint"),
     accountSubmit: document.getElementById("accountSubmit"),
+    backdropMode: document.getElementById("backdropMode"),
+    backdropInterval: document.getElementById("backdropInterval"),
     logTerminal: document.getElementById("logTerminal"),
     logDailyTotal: document.getElementById("logDailyTotal"),
     logDateInput: document.getElementById("logDateInput"),
@@ -818,6 +822,14 @@
     els.longEvery.value = state.settings.longEvery;
     els.autoStart.checked = state.settings.autoStart;
     els.soundOn.checked = state.settings.soundOn;
+    if (els.backdropMode) els.backdropMode.value = state.settings.backdropMode || "both";
+    if (els.backdropInterval) els.backdropInterval.value = state.settings.backdropInterval || "20s";
+    if (window.StillArt) {
+      window.StillArt.applySettings({
+        backdropMode: state.settings.backdropMode || "both",
+        backdropInterval: state.settings.backdropInterval || "20s",
+      });
+    }
     applyLayout();
   }
 
@@ -828,6 +840,8 @@
     state.settings.longEvery = clamp(Number(els.longEvery.value) || 4, 2, 12);
     state.settings.autoStart = els.autoStart.checked;
     state.settings.soundOn = els.soundOn.checked;
+    if (els.backdropMode) state.settings.backdropMode = els.backdropMode.value || "both";
+    if (els.backdropInterval) state.settings.backdropInterval = els.backdropInterval.value || "20s";
     syncSettingsForm();
   }
 
@@ -1047,6 +1061,9 @@
       elapsed,
       task: taskName,
     });
+    if (window.StillArt && typeof window.StillArt.onSessionComplete === "function") {
+      window.StillArt.onSessionComplete();
+    }
 
     if (finished === "focus") {
       const task = activeTask();
@@ -1320,6 +1337,14 @@
     });
   });
 
+  [els.backdropMode, els.backdropInterval].forEach((input) => {
+    if (!input) return;
+    input.addEventListener("change", () => {
+      readSettingsFromForm();
+      saveState();
+    });
+  });
+
   els.noiseToggle.addEventListener("click", async () => {
     player.trackId = state.ambient.trackId;
     player.setVolume(state.ambient.volume);
@@ -1434,7 +1459,7 @@
   window.addEventListener("beforeunload", saveState);
 
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./sw.js?v=17").then((reg) => {
+    navigator.serviceWorker.register("./sw.js?v=18").then((reg) => {
       reg.update().catch(() => {});
     }).catch(() => {});
   }
