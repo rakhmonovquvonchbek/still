@@ -18,7 +18,7 @@
       href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Sora:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=16" />
+    <link rel="stylesheet" href="styles.css?v=17" />
   </head>
   <body>
     <div class="art" aria-hidden="true">
@@ -151,6 +151,31 @@
         <ul id="memoryList" class="memory-list"></ul>
       </section>
 
+      <section class="focus-log" aria-label="Focus log">
+        <div class="section-head log-head">
+          <div>
+            <h2>Log</h2>
+            <p>Exact focus timeline</p>
+          </div>
+          <div class="log-day-switch" role="group" aria-label="Log day">
+            <button type="button" class="ghost tiny log-day-btn is-active" data-log-day="today">Today</button>
+            <button type="button" class="ghost tiny log-day-btn" data-log-day="yesterday">Yesterday</button>
+            <label class="log-date-pick">
+              <span class="sr-only">Pick a date</span>
+              <input id="logDateInput" type="date" />
+            </label>
+          </div>
+        </div>
+        <p id="logDailyTotal" class="log-daily-total">Today: 0m focused · 0 sessions</p>
+        <div id="logTerminal" class="log-terminal" role="log" aria-live="polite"></div>
+        <div class="log-actions">
+          <button id="logCopyBtn" class="ghost tiny" type="button">Copy</button>
+          <button id="logExportTxtBtn" class="ghost tiny" type="button">Export .txt</button>
+          <button id="logExportCsvBtn" class="ghost tiny" type="button">Export .csv</button>
+        </div>
+        <p id="logStatus" class="log-status" hidden></p>
+      </section>
+
       <section class="panel">
         <button id="settingsToggle" class="panel-toggle" type="button" aria-expanded="false">
           Settings
@@ -237,9 +262,9 @@
       </form>
     </dialog>
 
-    <script src="auth.js?v=16"></script>
-    <script src="art.js?v=16"></script>
-    <script src="audio.js?v=16"></script>
-    <script src="app.js?v=16"></script>
+    <script src="auth.js?v=17"></script>
+    <script src="art.js?v=17"></script>
+    <script src="audio.js?v=17"></script>
+    <script src="app.js?v=17"></script>
   </body>
 </html>

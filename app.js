@@ -29,6 +29,7 @@
     tasks: [],
     activeTaskId: null,
     memory: [],
+    log: [],
     session: {
       mode: "focus",
       remainingMs: 25 * 60 * 1000,
@@ -36,7 +37,20 @@
       endsAt: null,
       startedAt: null,
       durationMs: 25 * 60 * 1000,
+      focusedAccumMs: 0,
+      segmentStartedAt: null,
     },
+  };
+
+  const LOG_ROOT_KEY = "still.log";
+  const LOG_ICONS = {
+    start: "▶",
+    resume: "▶",
+    pause: "❚❚",
+    complete: "✔",
+    skip: "↷",
+    reset: "↺",
+    interrupted: "⚠",
   };
 
   const els = {
@@ -96,6 +110,14 @@
     accountTitle: document.getElementById("accountTitle"),
     accountHint: document.getElementById("accountHint"),
     accountSubmit: document.getElementById("accountSubmit"),
+    logTerminal: document.getElementById("logTerminal"),
+    logDailyTotal: document.getElementById("logDailyTotal"),
+    logDateInput: document.getElementById("logDateInput"),
+    logCopyBtn: document.getElementById("logCopyBtn"),
+    logExportTxtBtn: document.getElementById("logExportTxtBtn"),
+    logExportCsvBtn: document.getElementById("logExportCsvBtn"),
+    logStatus: document.getElementById("logStatus"),
+    logDayBtns: [...document.querySelectorAll("[data-log-day]")],
   };
 
   let state = null;
@@ -104,6 +126,8 @@
   let pendingReflect = null;
   let calCursor = startOfMonth(new Date());
   let deferredInstall = null;
+  let logDayKey = localDateKey();
+  let lastLogEventId = null;
 
   function pad(n) {
     return String(n).padStart(2, "0");
@@ -131,6 +155,304 @@
     return `${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`;
   }
 
+  function logStorageKey() {
+    const current = auth.active();
+    return current ? `${LOG_ROOT_KEY}:${current.id}` : LOG_ROOT_KEY;
+  }
+
+  function readLogStore() {
+    try {
+      const raw = localStorage.getItem(logStorageKey());
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return { v: 1, migrated: false, events: parsed };
+      if (parsed && typeof parsed === "object") {
+        return {
+          v: 1,
+          migrated: Boolean(parsed.migrated),
+          events: Array.isArray(parsed.events) ? parsed.events : [],
+        };
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  }
+
+  function writeLogStore(events, migrated = true) {
+    const payload = { v: 1, migrated, events: events.slice(-2000) };
+    localStorage.setItem(logStorageKey(), JSON.stringify(payload));
+    // Keep the canonical guest key mirrored when signed out.
+    if (!auth.active()) {
+      localStorage.setItem(LOG_ROOT_KEY, JSON.stringify(payload));
+    }
+  }
+
+  function formatLogClock(iso) {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return String(iso || "");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  }
+
+  function formatDurationSecs(totalSecs) {
+    const secs = Math.max(0, Math.round(Number(totalSecs) || 0));
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = secs % 60;
+    if (h > 0) return `${h}:${pad(m)}:${pad(s)}`;
+    return `${pad(m)}:${pad(s)}`;
+  }
+
+  function formatHumanFocus(totalSecs) {
+    const secs = Math.max(0, Math.round(Number(totalSecs) || 0));
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    if (h > 0 && m > 0) return `${h}h ${m}m`;
+    if (h > 0) return `${h}h`;
+    if (m > 0) return `${m}m`;
+    return `${secs}s`;
+  }
+
+  function eventDateKey(iso) {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    return localDateKey(d);
+  }
+
+  function currentTaskName() {
+    const task = activeTask();
+    return task ? task.text : null;
+  }
+
+  function normalizeLogEvent(raw) {
+    if (!raw || typeof raw !== "object") return null;
+    const type = String(raw.type || "");
+    const allowed = ["start", "pause", "resume", "complete", "skip", "reset", "interrupted"];
+    if (!allowed.includes(type)) return null;
+    const mode = ["focus", "short", "long"].includes(raw.mode) ? raw.mode : "focus";
+    return {
+      id: raw.id || uid(),
+      ts: raw.ts || new Date().toISOString(),
+      type,
+      mode,
+      planned: Math.max(0, Math.round(Number(raw.planned) || 0)),
+      elapsed: Math.max(0, Math.round(Number(raw.elapsed) || 0)),
+      task: raw.task == null || raw.task === "" ? null : String(raw.task).slice(0, 80),
+    };
+  }
+
+  function migrateLogOnce(next) {
+    const store = readLogStore();
+    const fromState = Array.isArray(next.log)
+      ? next.log.map(normalizeLogEvent).filter(Boolean)
+      : [];
+    const fromStore = store ? store.events.map(normalizeLogEvent).filter(Boolean) : [];
+
+    if (store && store.migrated) {
+      const byId = new Map();
+      [...fromStore, ...fromState].forEach((ev) => byId.set(ev.id, ev));
+      next.log = [...byId.values()].sort((a, b) => String(a.ts).localeCompare(String(b.ts)));
+      writeLogStore(next.log, true);
+      return next;
+    }
+
+    const byId = new Map();
+    [...fromStore, ...fromState].forEach((ev) => byId.set(ev.id, ev));
+
+    const plannedFocus = Math.max(1, Number(next.settings.focus) || 25) * 60;
+    Object.entries(next.history || {}).forEach(([date, count]) => {
+      const n = Number(count) || 0;
+      for (let i = 0; i < n; i += 1) {
+        const parts = String(date).split("-").map(Number);
+        if (parts.length !== 3 || parts.some((x) => !x && x !== 0)) continue;
+        const stamp = new Date(parts[0], parts[1] - 1, parts[2], 12, Math.min(i, 59), 0);
+        const ev = {
+          id: `migrated-${date}-${i}`,
+          ts: stamp.toISOString(),
+          type: "complete",
+          mode: "focus",
+          planned: plannedFocus,
+          elapsed: plannedFocus,
+          task: null,
+        };
+        if (!byId.has(ev.id)) byId.set(ev.id, ev);
+      }
+    });
+
+    // Memory notes remain in state.memory; history covers completed focus counts for the log.
+
+    next.log = [...byId.values()].sort((a, b) => String(a.ts).localeCompare(String(b.ts)));
+    writeLogStore(next.log, true);
+    return next;
+  }
+
+  function persistLog() {
+    if (!state) return;
+    state.log = (state.log || []).slice(-2000);
+    writeLogStore(state.log, true);
+  }
+
+  function appendLogEvent(partial) {
+    const event = normalizeLogEvent({
+      id: uid(),
+      ts: new Date().toISOString(),
+      planned: Math.round((state.session.durationMs || modeDurationMs()) / 1000),
+      elapsed: 0,
+      mode: state.session.mode,
+      task: currentTaskName(),
+      ...partial,
+    });
+    if (!event) return null;
+    state.log = [...(state.log || []), event].slice(-2000);
+    lastLogEventId = event.id;
+    persistLog();
+    return event;
+  }
+
+  function focusedSecondsNow() {
+    let ms = Number(state.session.focusedAccumMs) || 0;
+    if (state.session.running && state.session.segmentStartedAt) {
+      const endBound = state.session.endsAt
+        ? Math.min(Date.now(), state.session.endsAt)
+        : Date.now();
+      ms += Math.max(0, endBound - state.session.segmentStartedAt);
+    }
+    return Math.round(ms / 1000);
+  }
+
+  function closeRunningSegment() {
+    if (!state.session.running || !state.session.segmentStartedAt) return;
+    const now = Date.now();
+    const endBound = state.session.endsAt ? Math.min(now, state.session.endsAt) : now;
+    state.session.focusedAccumMs =
+      (Number(state.session.focusedAccumMs) || 0) + Math.max(0, endBound - state.session.segmentStartedAt);
+    state.session.segmentStartedAt = null;
+  }
+
+  function eventsForDay(dayKey) {
+    return (state.log || []).filter((ev) => eventDateKey(ev.ts) === dayKey);
+  }
+
+  function dayStats(dayKey) {
+    const events = eventsForDay(dayKey);
+    const focusEnds = events.filter(
+      (ev) =>
+        ev.mode === "focus" &&
+        (ev.type === "complete" || ev.type === "interrupted" || ev.type === "skip" || ev.type === "reset")
+    );
+    const focusedSecs = focusEnds.reduce((sum, ev) => sum + (Number(ev.elapsed) || 0), 0);
+    const sessions = focusEnds.filter((ev) => (Number(ev.elapsed) || 0) > 0 || ev.type === "complete").length;
+    const longest = focusEnds.reduce((max, ev) => Math.max(max, Number(ev.elapsed) || 0), 0);
+    return { focusedSecs, sessions, longest, events };
+  }
+
+  function formatLogLine(ev) {
+    const icon = LOG_ICONS[ev.type] || "·";
+    const typePad = String(ev.type).padEnd(11, " ");
+    const mode = String(ev.mode || "").padEnd(5, " ");
+    let line = `${formatLogClock(ev.ts)}  ${icon} ${typePad} ${mode}`;
+    if (ev.type === "start" || ev.type === "complete") {
+      line += ` ${formatDurationSecs(ev.planned || 0)}`;
+    } else if (ev.type === "pause" || ev.type === "interrupted") {
+      line += ` ${formatDurationSecs(ev.elapsed || 0)}`;
+    } else if ((ev.type === "skip" || ev.type === "reset") && ev.elapsed) {
+      line += ` ${formatDurationSecs(ev.elapsed)}`;
+    }
+    if (ev.task) line += `  "${ev.task}"`;
+    return line;
+  }
+
+  function summaryLineFor(ev) {
+    if (!["complete", "skip", "reset", "interrupted"].includes(ev.type)) return null;
+    if (ev.mode !== "focus") return null;
+    const label =
+      ev.type === "complete"
+        ? "session complete"
+        : ev.type === "interrupted"
+          ? "session interrupted"
+          : ev.type === "skip"
+            ? "session skipped"
+            : "session reset";
+    return `── ${label}: ${formatDurationSecs(ev.elapsed || 0)} focused (pauses excluded) ──`;
+  }
+
+  function dayLabel(dayKey) {
+    if (dayKey === localDateKey()) return "Today";
+    if (dayKey === yesterdayKey()) return "Yesterday";
+    return dayKey;
+  }
+
+  function plainLogText(dayKey) {
+    const { focusedSecs, sessions, longest, events } = dayStats(dayKey);
+    const lines = [
+      `${dayLabel(dayKey)}: ${formatHumanFocus(focusedSecs)} focused · ${sessions} session${sessions === 1 ? "" : "s"} · longest ${formatHumanFocus(longest)}`,
+      "",
+    ];
+    events.forEach((ev) => {
+      lines.push(formatLogLine(ev));
+      const summary = summaryLineFor(ev);
+      if (summary) lines.push(summary);
+    });
+    if (!events.length) lines.push("(no events)");
+    return lines.join("\n");
+  }
+
+  function renderLog(options = {}) {
+    if (!els.logTerminal) return;
+    const stickBottom =
+      options.forceStick ||
+      els.logTerminal.scrollTop + els.logTerminal.clientHeight >= els.logTerminal.scrollHeight - 24;
+    const { focusedSecs, sessions, longest, events } = dayStats(logDayKey);
+    els.logDailyTotal.textContent = `${dayLabel(logDayKey)}: ${formatHumanFocus(focusedSecs)} focused · ${sessions} session${
+      sessions === 1 ? "" : "s"
+    } · longest ${formatHumanFocus(longest)}`;
+
+    els.logTerminal.innerHTML = "";
+    if (!events.length) {
+      const empty = document.createElement("div");
+      empty.className = "log-line is-empty";
+      empty.textContent = "No focus events for this day yet.";
+      els.logTerminal.appendChild(empty);
+    } else {
+      events.forEach((ev) => {
+        const line = document.createElement("div");
+        line.className = `log-line is-${ev.type}`;
+        if (ev.id === lastLogEventId) line.classList.add("is-new");
+        line.textContent = formatLogLine(ev);
+        els.logTerminal.appendChild(line);
+        const summary = summaryLineFor(ev);
+        if (summary) {
+          const sum = document.createElement("div");
+          sum.className = "log-line is-summary";
+          if (ev.id === lastLogEventId) sum.classList.add("is-new");
+          sum.textContent = summary;
+          els.logTerminal.appendChild(sum);
+        }
+      });
+    }
+
+    els.logDayBtns.forEach((btn) => {
+      const kind = btn.getAttribute("data-log-day");
+      const active =
+        (kind === "today" && logDayKey === localDateKey()) ||
+        (kind === "yesterday" && logDayKey === yesterdayKey());
+      btn.classList.toggle("is-active", active);
+    });
+    if (els.logDateInput && els.logDateInput.value !== logDayKey) {
+      els.logDateInput.value = logDayKey;
+    }
+
+    if (stickBottom) {
+      els.logTerminal.scrollTop = els.logTerminal.scrollHeight;
+    }
+  }
+
+  function setLogStatus(text) {
+    if (!els.logStatus) return;
+    els.logStatus.hidden = !text;
+    els.logStatus.textContent = text || "";
+  }
+
   function normalizeState(parsed) {
     const next = {
       settings: { ...defaults.settings, ...(parsed.settings || {}) },
@@ -140,6 +462,7 @@
       tasks: Array.isArray(parsed.tasks) ? parsed.tasks.slice(0, 50) : [],
       activeTaskId: parsed.activeTaskId || null,
       memory: Array.isArray(parsed.memory) ? parsed.memory.slice(0, 100) : [],
+      log: Array.isArray(parsed.log) ? parsed.log : [],
       session: { ...defaults.session, ...(parsed.session || {}) },
     };
 
@@ -153,7 +476,9 @@
     if (!next.settings.layout) {
       next.settings.layout = window.innerWidth >= 980 ? "laptop" : "mobile";
     }
-    return next;
+    if (typeof next.session.focusedAccumMs !== "number") next.session.focusedAccumMs = 0;
+    if (next.session.segmentStartedAt == null) next.session.segmentStartedAt = null;
+    return migrateLogOnce(next);
   }
 
   function loadState() {
@@ -161,11 +486,12 @@
       const parsed = auth.loadState(defaults) || defaults;
       return normalizeState(parsed);
     } catch {
-      return structuredClone(defaults);
+      return migrateLogOnce(structuredClone(defaults));
     }
   }
 
   function saveState() {
+    persistLog();
     auth.saveState(state);
   }
 
@@ -242,6 +568,7 @@
     renderTasks();
     renderMemory();
     renderCalendar();
+    renderLog({ forceStick: true });
     renderAccount();
     renderAmbient();
     els.accountStatus.textContent = auth.active()
@@ -519,6 +846,22 @@
   }
 
   function setMode(mode) {
+    const hadProgress =
+      state.session.running ||
+      (Number(state.session.focusedAccumMs) || 0) > 0 ||
+      state.session.remainingMs < state.session.durationMs - 250;
+    if (hadProgress) {
+      syncRemainingFromClock();
+      closeRunningSegment();
+      const elapsed = Math.round((Number(state.session.focusedAccumMs) || 0) / 1000);
+      appendLogEvent({
+        type: "reset",
+        mode: state.session.mode,
+        planned: Math.round((state.session.durationMs || modeDurationMs()) / 1000),
+        elapsed,
+        task: currentTaskName(),
+      });
+    }
     stopTicker();
     state.session.mode = mode;
     state.session.durationMs = modeDurationMs(mode);
@@ -526,8 +869,11 @@
     state.session.running = false;
     state.session.endsAt = null;
     state.session.startedAt = null;
+    state.session.focusedAccumMs = 0;
+    state.session.segmentStartedAt = null;
     saveState();
     render();
+    renderLog();
   }
 
   function syncRemainingFromClock() {
@@ -559,35 +905,79 @@
     if (state.session.remainingMs <= 0) {
       state.session.remainingMs = modeDurationMs();
       state.session.durationMs = state.session.remainingMs;
+      state.session.focusedAccumMs = 0;
+      state.session.segmentStartedAt = null;
     }
+    const planned = Math.round((state.session.durationMs || modeDurationMs()) / 1000);
+    const isResume =
+      (Number(state.session.focusedAccumMs) || 0) > 0 ||
+      state.session.remainingMs < state.session.durationMs - 250;
+    if (!isResume) {
+      state.session.focusedAccumMs = 0;
+    }
+    const now = Date.now();
     state.session.running = true;
-    state.session.startedAt = Date.now();
-    state.session.endsAt = Date.now() + state.session.remainingMs;
+    state.session.startedAt = now;
+    state.session.segmentStartedAt = now;
+    state.session.endsAt = now + state.session.remainingMs;
+    appendLogEvent({
+      type: isResume ? "resume" : "start",
+      planned,
+      elapsed: Math.round((Number(state.session.focusedAccumMs) || 0) / 1000),
+      task: currentTaskName(),
+    });
     saveState();
     startTicker();
     render();
+    renderLog();
     requestNotifyPermission();
   }
 
   function pauseTimer() {
     syncRemainingFromClock();
+    closeRunningSegment();
+    const planned = Math.round((state.session.durationMs || modeDurationMs()) / 1000);
+    const elapsed = Math.round((Number(state.session.focusedAccumMs) || 0) / 1000);
     state.session.running = false;
     state.session.endsAt = null;
     state.session.startedAt = null;
     stopTicker();
+    appendLogEvent({
+      type: "pause",
+      planned,
+      elapsed,
+      task: currentTaskName(),
+    });
     saveState();
     render();
+    renderLog();
   }
 
   function resetTimer() {
+    syncRemainingFromClock();
+    closeRunningSegment();
+    const planned = Math.round((state.session.durationMs || modeDurationMs()) / 1000);
+    const elapsed = Math.round((Number(state.session.focusedAccumMs) || 0) / 1000);
+    const hadProgress = elapsed > 0 || state.session.remainingMs < state.session.durationMs - 250;
     stopTicker();
+    if (hadProgress) {
+      appendLogEvent({
+        type: "reset",
+        planned,
+        elapsed,
+        task: currentTaskName(),
+      });
+    }
     state.session.running = false;
     state.session.endsAt = null;
     state.session.startedAt = null;
+    state.session.focusedAccumMs = 0;
+    state.session.segmentStartedAt = null;
     state.session.durationMs = modeDurationMs();
     state.session.remainingMs = state.session.durationMs;
     saveState();
     render();
+    renderLog();
   }
 
   function nextModeAfter(completedMode) {
@@ -638,11 +1028,25 @@
 
   async function completeSession() {
     stopTicker();
+    syncRemainingFromClock();
+    closeRunningSegment();
     const finished = state.session.mode;
+    const planned = Math.round((state.session.durationMs || modeDurationMs(finished)) / 1000);
+    const elapsed = Math.round((Number(state.session.focusedAccumMs) || 0) / 1000);
+    const taskName = currentTaskName();
     state.session.running = false;
     state.session.endsAt = null;
     state.session.startedAt = null;
     state.session.remainingMs = 0;
+    state.session.segmentStartedAt = null;
+
+    appendLogEvent({
+      type: "complete",
+      mode: finished,
+      planned,
+      elapsed,
+      task: taskName,
+    });
 
     if (finished === "focus") {
       const task = activeTask();
@@ -661,28 +1065,44 @@
       notifyDone(finished);
     }
 
+    state.session.focusedAccumMs = 0;
     const upcoming = nextModeAfter(finished);
     state.session.mode = upcoming;
     state.session.durationMs = modeDurationMs(upcoming);
     state.session.remainingMs = state.session.durationMs;
     saveState();
     render();
+    renderLog();
 
     if (state.settings.autoStart) startTimer();
   }
 
   function skipSession() {
     const finished = state.session.mode;
+    syncRemainingFromClock();
+    closeRunningSegment();
+    const planned = Math.round((state.session.durationMs || modeDurationMs(finished)) / 1000);
+    const elapsed = Math.round((Number(state.session.focusedAccumMs) || 0) / 1000);
     stopTicker();
+    appendLogEvent({
+      type: "skip",
+      mode: finished,
+      planned,
+      elapsed,
+      task: currentTaskName(),
+    });
     state.session.running = false;
     state.session.endsAt = null;
     state.session.startedAt = null;
+    state.session.focusedAccumMs = 0;
+    state.session.segmentStartedAt = null;
     const upcoming = nextModeAfter(finished);
     state.session.mode = upcoming;
     state.session.durationMs = modeDurationMs(upcoming);
     state.session.remainingMs = state.session.durationMs;
     saveState();
     render();
+    renderLog();
   }
 
   function playChime() {
@@ -749,11 +1169,13 @@
   }
 
   function exportData() {
+    persistLog();
     const payload = {
       app: "still",
-      version: 3,
+      version: 4,
       exportedAt: new Date().toISOString(),
       data: state,
+      log: state.log || [],
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -776,7 +1198,12 @@
           els.dataStatus.textContent = "Import cancelled.";
           return;
         }
-        state = {
+        const importedLog = Array.isArray(parsed.log)
+          ? parsed.log
+          : Array.isArray(data.log)
+            ? data.log
+            : [];
+        state = normalizeState({
           settings: { ...defaults.settings, ...(data.settings || {}) },
           ambient: { ...defaults.ambient, ...(data.ambient || {}), playing: false },
           stats: { ...defaults.stats, ...(data.stats || {}) },
@@ -784,14 +1211,16 @@
           tasks: Array.isArray(data.tasks) ? data.tasks.slice(0, 50) : [],
           activeTaskId: data.activeTaskId || null,
           memory: Array.isArray(data.memory) ? data.memory.slice(0, 100) : [],
-          session: { ...defaults.session, ...(data.session || {}), running: false, endsAt: null },
-        };
+          log: importedLog,
+          session: { ...defaults.session, ...(data.session || {}), running: false, endsAt: null, segmentStartedAt: null },
+        });
         saveState();
         syncSettingsForm();
         render();
         renderTasks();
         renderMemory();
         renderCalendar();
+        renderLog({ forceStick: true });
         els.dataStatus.textContent = "Import complete.";
       } catch {
         els.dataStatus.textContent = "Could not import that file.";
@@ -808,10 +1237,27 @@
         await completeSession();
         return;
       }
-      startTicker();
+      // App was closed mid-session: record exact focused time, do not silently continue.
+      closeRunningSegment();
+      const planned = Math.round((state.session.durationMs || modeDurationMs()) / 1000);
+      const elapsed = Math.round((Number(state.session.focusedAccumMs) || 0) / 1000);
+      appendLogEvent({
+        type: "interrupted",
+        mode: state.session.mode,
+        planned,
+        elapsed,
+        task: currentTaskName(),
+      });
+      state.session.running = false;
+      state.session.endsAt = null;
+      state.session.startedAt = null;
+      state.session.segmentStartedAt = null;
+      // Keep focusedAccumMs so Resume continues the same attempt accurately.
+      stopTicker();
     } else {
       state.session.running = false;
       state.session.endsAt = null;
+      state.session.segmentStartedAt = null;
       if (!state.session.durationMs) state.session.durationMs = modeDurationMs();
       if (state.session.remainingMs == null) state.session.remainingMs = state.session.durationMs;
     }
@@ -823,6 +1269,7 @@
     renderTasks();
     renderMemory();
     renderCalendar();
+    renderLog({ forceStick: true });
   }
 
   els.toggleBtn.addEventListener("click", () => {
@@ -987,7 +1434,7 @@
   window.addEventListener("beforeunload", saveState);
 
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./sw.js?v=16").then((reg) => {
+    navigator.serviceWorker.register("./sw.js?v=17").then((reg) => {
       reg.update().catch(() => {});
     }).catch(() => {});
   }
@@ -1027,8 +1474,73 @@
     closeAccountDialog();
   });
 
+  els.logDayBtns.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const kind = btn.getAttribute("data-log-day");
+      logDayKey = kind === "yesterday" ? yesterdayKey() : localDateKey();
+      renderLog({ forceStick: true });
+    });
+  });
+
+  if (els.logDateInput) {
+    els.logDateInput.value = logDayKey;
+    els.logDateInput.addEventListener("change", () => {
+      if (els.logDateInput.value) {
+        logDayKey = els.logDateInput.value;
+        renderLog({ forceStick: true });
+      }
+    });
+  }
+
+  els.logCopyBtn.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(plainLogText(logDayKey));
+      setLogStatus("Copied log for " + dayLabel(logDayKey));
+    } catch {
+      setLogStatus("Could not copy.");
+    }
+  });
+
+  els.logExportTxtBtn.addEventListener("click", () => {
+    const blob = new Blob([plainLogText(logDayKey) + "\n"], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `still-log-${logDayKey}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setLogStatus("Exported .txt");
+  });
+
+  els.logExportCsvBtn.addEventListener("click", () => {
+    const rows = [["id", "ts", "type", "mode", "planned_sec", "elapsed_sec", "task"]];
+    eventsForDay(logDayKey).forEach((ev) => {
+      rows.push([
+        ev.id,
+        ev.ts,
+        ev.type,
+        ev.mode,
+        String(ev.planned || 0),
+        String(ev.elapsed || 0),
+        ev.task == null ? "" : String(ev.task).replaceAll('"', '""'),
+      ]);
+    });
+    const csv = rows
+      .map((cols) => cols.map((c) => `"${String(c).replaceAll('"', '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob([csv + "\n"], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `still-log-${logDayKey}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setLogStatus("Exported .csv");
+  });
+
   els.accountSyncExport.addEventListener("click", async () => {
     try {
+      persistLog();
       const code = auth.exportSyncCode(state);
       await navigator.clipboard.writeText(code);
       els.accountStatus.textContent = "Sync code copied. Paste it on another device to restore.";
@@ -1043,6 +1555,8 @@
     try {
       const payload = auth.importSyncCode(code);
       const name = payload.account?.name || "Imported";
+      const incoming = { ...(payload.state || {}) };
+      if (Array.isArray(payload.log) && !Array.isArray(incoming.log)) incoming.log = payload.log;
       reloadAsAccount(() => {
         const account = auth.create(name);
         if (payload.account?.color) {
@@ -1051,15 +1565,16 @@
           if (row) row.color = account.color;
           localStorage.setItem("still-accounts-meta-v1", JSON.stringify(auth.meta));
         }
-        auth.saveState(payload.state);
+        auth.saveState(incoming);
       });
-      state = normalizeState(payload.state);
+      state = normalizeState(incoming);
       saveState();
       syncSettingsForm();
       render();
       renderTasks();
       renderMemory();
       renderCalendar();
+      renderLog({ forceStick: true });
       renderAccount();
       els.accountStatus.textContent = `Imported ${auth.active()?.name || "account"}`;
     } catch {
